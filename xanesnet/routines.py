@@ -16,6 +16,7 @@ from sklearn.preprocessing import StandardScaler
 from core import check_gpu_support
 from core import load_user_input_f
 from core import load_data_ids
+from core import load_g_var_f
 from core import xyz2x
 from core import xas2y
 from core import get_kf_idxs
@@ -26,6 +27,7 @@ from core import xas2csv
 from core import metrics2csv
 from descriptors import CoulombMatrixDescr
 from descriptors import RadialDistCurveDescr
+from descriptors import WACSFDescr
 from convolute import ArctanConvoluter
 
 ###############################################################################
@@ -59,7 +61,15 @@ def learn(inp_f):
     if inp['features'] == 'cmat':
         featuriser = CoulombMatrixDescr(inp['n_max'])
     elif inp['features'] == 'rdc':
-        featuriser = RadialDistCurveDescr(inp['r_max'], inp['dr'], inp['alpha'])                                                          
+        featuriser = RadialDistCurveDescr(inp['r_max'], 
+                                          inp['dr'], 
+                                          inp['alpha'])
+    elif inp['features'] == 'wacsf':
+        g2_vars = load_g_var_f(inp['g2_var_f']) if 'g2_var_f' in inp else None
+        g4_vars = load_g_var_f(inp['g4_var_f']) if 'g4_var_f' in inp else None
+        featuriser = WACSFDescr(inp['r_max'], 
+                                g2_vars = g2_vars, 
+                                g4_vars = g4_vars)                                                          
     else:
         err_str = 'requested representation not implemented; got {}'
         raise ValueError(err_str.format(inp['features']))

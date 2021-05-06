@@ -78,6 +78,15 @@ def load_data_ids(*dirs):
 
     return ids
 
+def load_g_var_f(g_var_f):
+
+    with open(g_var_f, 'r') as f:
+        g_vars = [l.strip().split(',') for l in f if not l.startswith('#')]
+
+    g_vars = [list(g_var) for g_var in zip(*g_vars)]
+
+    return g_vars
+
 def xyz2x(xyz_f, descriptor):
 
     with open(xyz_f) as f:
