@@ -1,250 +1,265 @@
+"""
+XANESNET
+Copyright (C) 2021  Conor D. Rankine
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software 
+Foundation, either Version 3 of the License, or (at your option) any later 
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with 
+this program.  If not, see <https://www.gnu.org/licenses/>.
+"""
+
 ###############################################################################
 ############################### LIBRARY IMPORTS ###############################
 ###############################################################################
 
 import numpy as np
 import tensorflow as tf
-import ast as ast
+import pickle as pickle
+import random as random
+import tqdm as tqdm
+import time as time
 
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.layers import Dense, Dropout, Activation
-from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint
-from tensorflow.keras.utils import Sequence
+from pathlib import Path
 from sklearn.model_selection import RepeatedKFold
 from sklearn.preprocessing import StandardScaler
-from ase import Atoms
+
+from core_utils import check_gpu_support
+from core_utils import load_user_input_f
+from core_utils import load_data_ids
+from core_utils import load_csv_input_f
+from core_utils import xyz2x
+from core_utils import xas2y
+from core_utils import get_kf_idxs
+from core_utils import compile_mlp
+from core_utils import fit_net
+from core_utils import log2csv
+from core_utils import xas2csv
+from core_utils import metrics2csv
+from descriptors import CoulombMatrix
+from descriptors import RadDistCurve
+from descriptors import WACSF
+from convolute import ArctanConvoluter
 
 ###############################################################################
-############################### CORE FUNCTIONS ################################
+################################## FUNCTIONS ##################################
 ###############################################################################
 
-def check_gpu_support():
-
-    dev_type = 'GPU' if tf.config.list_physical_devices('GPU') else 'CPU'
-
-    str_ = '>> detecting GPU/nVidia CUDA acceleration support: {}\n'
-    print(str_.format('supported' if dev_type == 'GPU' else 'unsupported'))
-
-    print('>> listing available {} devices:'.format(dev_type))
-    for device in tf.config.list_physical_devices(dev_type):
-        print('>> {}'.format(device[0])) 
-
-    print()
-
-    return 0
-
-def load_user_input_f(inp_f):
-
-    print('>> loading user input @ {}\n'.format(inp_f))
+def learn(inp_f: str):
+    """
+    The main runtime routine for 'learn' mode. The data are loaded, transformed
+    into descriptors, shuffled, scaled, and split into training and validation 
+    k-folds - all as specified in the input file (see examples & docs). A  
+    neural network is instantiated (also as specified in the input file) and 
+    fit to the data. 
     
-    inp = {}
+    This runtime routine creates a model.xxxxxxx directory in
+    the current workspace; this directory is organised hierarchically: 
     
-    with open(inp_f) as f:
-        ls = [l for l in f if l.strip() and not l.startswith('#')]
+    > model.xxxxxxxx
+      ~ model.hdf5 (the optimised TensorFlow/Keras model in .hdf5 format)
+      > out (contains useful summary statistics in .csv format)
+      > pkl (contains retained serialised objects in .pkl format)
+      > tf (contains retained TensorFlow/Keras intermediate files)
+      
+    The model.xxxxxxxx directory is required to launch the main runtime routine
+    for 'predict' mode as many of the contents have to be loaded.
 
-    for l in ls:
-        (var, val) = l.split('=')
-        print('>> {} :: {}'.format(var.strip(), val.strip()))
-        try:
-            inp[var.strip()] = ast.literal_eval(val.strip())
-        except ValueError:
-            inp[var.strip()] = val.strip()
+    Args:
+        inp_f (str): The path to a .txt input file with variable definitions
+                     (see examples & docs).
+    """
 
-    print()
+    mdl_dir = Path(f'./model.{int(time.time())}')
+    out_dir = mdl_dir / 'out'
+    pkl_dir = mdl_dir / 'pkl'
+    tf_dir = mdl_dir / 'tf'
 
-    return inp
+    for d in [mdl_dir, out_dir, pkl_dir, tf_dir]:
+        d.mkdir()
 
-def load_data_ids(*dirs):
+    check_gpu_support()
 
-    print('>> listing supplied data sources:')
-    
-    for i, d in enumerate(dirs):
-        print('>> {}. {}'.format(i + 1, d))
-    
-    print()
+    inp = load_user_input_f(inp_f)
 
-    ids = [sorted([f.stem for f in d.iterdir() if f.is_file()]) 
-           for d in dirs]
+    x_dir = Path(inp['x_dir'])
+    y_dir = Path(inp['y_dir'])
 
-    if ids.count(ids[0]) != len(ids) or len(ids[0]) == 0:
-        raise RuntimeError('missing/mismatched files/IDs in data source(s)')
+    ids = load_data_ids(x_dir, y_dir)
+
+    random.shuffle(ids)
+
+    if inp['max_samples']:
+        ids = ids[:inp['max_samples']]
+
+    if inp['features'] == 'cmat':
+        featuriser = CoulombMatrix(inp['n_max'])
+    elif inp['features'] == 'rdc':
+        featuriser = RadDistCurve(inp['r_max'], inp['gridsize'], inp['alpha'])
+    elif inp['features'] == 'wacsf':
+        g2_vars = (load_csv_input_f(inp['g2_var_f']) 
+                   if 'g2_var_f' in inp else None)
+        g4_vars = (load_csv_input_f(inp['g4_var_f']) 
+                   if 'g4_var_f' in inp else None)
+        featuriser = WACSF(inp['r_max'], g2_vars = g2_vars, g4_vars = g4_vars)                                                         
     else:
-        ids = ids[0]
+        raise ValueError((f'{inp["features"]} is not implemented as a ',
+                          'featurisation type; use \'cmat\', \'rdc\', or ',
+                          '\'wacsf\''))
 
-    print('>> loaded {} IDs in the supplied data source(s)'.format(len(ids)))
-    
+    with open(pkl_dir / 'featuriser.pkl', 'wb') as f:
+        pickle.dump(featuriser, f)
+
+    x_spooler = (x_dir / (id_ + '.xyz') for id_ in ids)
+    print('>> spooling files to the xyz2x function...')
+    x = [xyz2x(f, featuriser) for f in tqdm.tqdm(x_spooler)]
     print()
 
-    return ids
-
-def load_g_var_f(g_var_f):
-
-    with open(g_var_f, 'r') as f:
-        g_vars = [l.strip().split(',') for l in f if not l.startswith('#')]
-
-    g_vars = [list(g_var) for g_var in zip(*g_vars)]
-
-    return g_vars
-
-def xyz2x(xyz_f, descriptor):
-
-    with open(xyz_f) as f:
-        xyz_f_l = [l.strip().split() for l in f]
-
-    z = np.array([l[0] for l in xyz_f_l[2:]], dtype = 'str')
-    xyz = np.array([l[1:] for l in xyz_f_l[2:]], dtype = 'float64')
-    
-    try:
-        ase = Atoms(z, xyz)
-    except KeyError:
-        ase = Atoms(z.astype('float64'), xyz)
-
-    features = descriptor.describe(ase)
-
-    return features
-
-def xas2y(xas_f):
-
-    with open(xas_f) as f:
-        xas_f_l = [l.strip().split() for l in f]
-
-    e = np.array([l[0] for l in xas_f_l[2:]], dtype = 'float64')
-    mu = np.array([l[1] for l in xas_f_l[2:]], dtype = 'float64')
-
-    mu /= mu[-1]
-
-    return e, mu
-
-def get_kf_idxs(ids, n_splits, n_repeats):
-
-    kf_spooler = RepeatedKFold(n_splits = n_splits, n_repeats = n_repeats)
- 
-    try:
-        kf_idxs = list(kf_spooler.split(ids))
-    except ValueError:
-        kf_idxs = [tuple([np.linspace(0, len(ids) - 1, len(ids) - 1, 
-                          dtype = 'uint32')] * 2) for _ in range(n_repeats)]
-
-    return kf_idxs
-
-def compile_mlp(inp_dim, out_dim, n_hl, ini_hl_dim, hl_shrink, activation,
-                dropout, lr, kernel_init, bias_init, loss):
-
-    net = Sequential()
-
-    net.add(Dense(ini_hl_dim, input_dim = inp_dim,
-                  kernel_initializer = kernel_init,
-                  kernel_regularizer = None,
-                  bias_initializer = bias_init,
-                  bias_regularizer = None))
-    net.add(Activation(activation))
-    net.add(Dropout(dropout))
-    
-    for i in range(n_hl - 1):
-        hl_dim = (int(ini_hl_dim * (hl_shrink ** (i + 1))))
-        net.add(Dense(hl_dim if (hl_dim > 1) else 1, 
-                      kernel_initializer = kernel_init,
-                      kernel_regularizer = None,
-                      bias_initializer = bias_init,
-                      bias_regularizer = None))
-        net.add(Activation(activation))
-        net.add(Dropout(dropout))
-    
-    net.add(Dense(out_dim))
-    net.add(Activation('linear'))
-
-    net.compile(loss = loss, optimizer = Adam(lr = lr))
-
-    return net
-
-def fit_net(net, train_data, test_data, epochs, batch_size,
-            chk_dir, log_dir):
-
-    chk = ModelCheckpoint(str(chk_dir / 'chk'),            
-                          monitor = 'val_loss', 
-                          save_weights_only = 'true',
-                          save_best_only = 'true',
-                          mode = 'auto',
-                          verbose = 0)
-
-    callbacks = [chk]
-
-    log = net.fit(*train_data,
-                  epochs = epochs, 
-                  batch_size = batch_size, 
-                  callbacks = callbacks,
-                  validation_data = test_data,
-                  shuffle = True, 
-                  verbose = 2)
-    
-    net.load_weights(str(chk_dir / 'chk'))
-
+    y_spooler = (y_dir / (id_ + '.txt') for id_ in ids)
+    print('>> spooling files to the xas2y function...')
+    e, y = zip(*[xas2y(f, inp['xas_gridsize']) for f in tqdm.tqdm(y_spooler)])
     print()
 
-    return net, log
+    with open(pkl_dir / 'e_scale.pkl', 'wb') as f:
+        pickle.dump(e[0], f)
 
-def xas2csv(e, mu, xas_f):
+    kf_idxs = get_kf_idxs(ids, inp['n_splits'], inp['n_repeats'])
 
-    fmt = ['%.2f'] + ['%.8f']
-    header = 'e,mu'
+    for kf_n, kf_idxs_pair in enumerate(kf_idxs):
 
-    with open(xas_f, 'w') as f:
-        np.savetxt(f, np.c_[e, mu / mu[-1]], delimiter = ',',
-                   fmt = fmt, header = header)
+        print(f'>> cycle no. {(kf_n + 1):.0f}/{(len(kf_idxs)):.0f}\n')
 
+        train_idxs, test_idxs = kf_idxs_pair
+
+        x_train, y_train = zip(*[(x[i], y[i]) for i in train_idxs])
+        x_test, y_test = zip(*[(x[i], y[i]) for i in test_idxs])
+
+        scaler = StandardScaler()
+        
+        x_train = scaler.fit_transform(x_train)
+        x_test = scaler.transform(x_test)
+
+        with open(pkl_dir / 'scaler.pkl', 'wb') as f:
+            pickle.dump(scaler, f)   
+
+        kf_dir = tf_dir / f'k{kf_n}'
+        log_dir = kf_dir / 'log'
+        chk_dir = kf_dir / 'chk'
+
+        for d in [kf_dir, log_dir, chk_dir]:
+            d.mkdir()
+
+        net = compile_mlp(inp_dim = x_train[0].size, 
+                          out_dim = y_train[0].size, 
+                          n_hl = inp['n_hl'],
+                          ini_hl_dim = inp['ini_hl_dim'],
+                          hl_shrink = inp['hl_shrink'],
+                          activation = inp['activation'],
+                          dropout = inp['dropout'], 
+                          lr = inp['lr'],
+                          kernel_init = inp['kernel_init'],
+                          bias_init = inp['bias_init'],
+                          loss = inp['loss'])
+
+        net, log = fit_net(net = net, 
+                           train_data = (np.array(x_train, dtype = 'float64'), 
+                                         np.array(y_train, dtype = 'float64')), 
+                           test_data = (np.array(x_test, dtype = 'float64'), 
+                                        np.array(y_test, dtype = 'float64')), 
+                           epochs = inp['epochs'],
+                           batch_size = inp['batch_size'],
+                           chk_dir = chk_dir,
+                           log_dir = log_dir)
+
+        net.save(mdl_dir / 'net.hdf5')
+
+        log2csv(log, log_dir)     
+
+    metrics2csv(out_dir, tf_dir)
+    
     return 0
 
-def log2csv(log, log_dir):
-
-    print('>> saving net perf. logs @ {}'.format(log_dir))
-
-    _, logs = zip(*log.history.items())
-    logs = np.array(logs, dtype = 'float64').T
+def predict(mdl_dir: str, xyz_dir: str, conv_inp_f = None):
+    """
+    The main runtime routine for 'predict' mode. A neural network is restored 
+    from a model.xxxxxxxx directory created by launching the runtime routine 
+    for 'learn' mode. The data for prediction are loaded, transformed into 
+    descriptors, and scaled - all consistently with the run that created
+    the model.xxxxxxxx directory. The neural network is then used to predict 
+    the XANES spectra. Optionally, the predicted XANES spectra can be 
+    convoluted with an energy-dependent arctan function (see convolute.py). 
     
-    n_epochs, _ = logs.shape   
-    epochs = np.linspace(1, n_epochs, n_epochs, dtype = 'uint16')
+    This runtime routine creates a predict.xxxxxxx directory in the current 
+    workspace; this directory contains the predictions from the neural network.
 
-    fmt = ['%.0f'] + ['%.6f'] * 2
-    header = 'epochs,train,valid'
+    Args:
+        mdl_dir (str): The path to a model.xxxxxxxx directory generated 
+                       using the 'learn' runtime routine.
+        xyz_dir (str): The path to a directory with .xyzs; XANES spectra will
+                       be predicted for each .xyz.
+        conv_inp_f (str, optional): The path to a .txt input file with variable
+                                    definitions for arctan convolution (see
+                                    examples & docs). Defaults to None.
+    """
 
-    with open(log_dir / 'metrics.csv', 'w') as f:
-        np.savetxt(f, np.c_[epochs, logs], delimiter = ',', 
-                   fmt = fmt, header = header)
+    predict_dir = Path(f'./predict.{int(time.time())}')
+    
+    predict_dir.mkdir()
 
+    check_gpu_support()
+
+    mdl_dir = Path(mdl_dir)
+    x_dir = Path(xyz_dir)  
+
+    ids = load_data_ids(x_dir)
+
+    with open(mdl_dir / 'pkl' / 'featuriser.pkl', 'rb') as f:
+        featuriser = pickle.load(f)
+
+    x_spooler = (x_dir / (id_ + '.xyz') for id_ in ids)
+    print('>> spooling files to the xyz2x function...')
+    x = [xyz2x(f, featuriser) for f in tqdm.tqdm(x_spooler)]
+    print()
+   
+    with open(mdl_dir / 'pkl' / 'scaler.pkl', 'rb') as f:
+        scaler = pickle.load(f)
+
+    x = scaler.transform(x)
+
+    net = tf.keras.models.load_model(mdl_dir / 'net.hdf5')
+
+    y_predict = net.predict(np.array(x, dtype = 'float64'))
+
+    with open(mdl_dir / 'pkl' / 'e_scale.pkl', 'rb') as f:
+        e = pickle.load(f)
+
+    print('>> spooling predictions to the xas2csv function...')
+    for id_, y in tqdm.tqdm(zip(ids, y_predict)):
+        csv_f = predict_dir / f'{id_}.csv'
+        xas2csv(e, y, csv_f)
     print()
 
-    return 0
+    if conv_inp_f:
 
-def metrics2csv(out_dir, tf_dir):
+        conv_inp = load_user_input_f(conv_inp_f)
+        
+        convoluter = ArctanConvoluter(e, e_edge = conv_inp['e_edge'],
+                                         e_l = conv_inp['e_l'],
+                                         e_c = conv_inp['e_c'],
+                                         e_f = conv_inp['e_f'],
+                                         g_hole = conv_inp['g_hole'],
+                                         g_max = conv_inp['g_max'])
 
-    print('>> saving net perf. stats @ {}'.format(out_dir))
-
-    metrics = np.array([np.genfromtxt(d / 'log' / 'metrics.csv', 
-                        delimiter = ',')[:,1:] for d in tf_dir.iterdir()])
-    
-    n_logs, n_epochs, _ = metrics.shape
-    kfs = np.linspace(1, n_logs, n_logs, dtype = 'uint16')
-    epochs = np.linspace(1, n_epochs, n_epochs, dtype = 'uint16')
-
-    metrics_avg = np.average(metrics, axis = 0)
-    metrics_std = np.std(metrics, axis = 0)
-    best = np.min(metrics, axis = 1)
-
-    fmt = ['%.0f'] + ['%.6f'] * 4
-    header = 'epochs,train,valid,train_std,valid_std'
-
-    with open(out_dir / 'epochs.csv', 'w') as f:
-        np.savetxt(f, np.c_[epochs, metrics_avg, metrics_std], 
-                   delimiter = ',', fmt = fmt, header = header)
-
-    fmt = ['%.0f'] + ['%.6f'] * 2
-    header = 'kfold,train_best,valid_best'
-
-    with open(out_dir / 'best.csv', 'w') as f:
-        np.savetxt(f, np.c_[kfs, best], 
-                   delimiter = ',', fmt = fmt, header = header)
-
-    print()
-
+        print('>> spooling conv. predictions to the xas2csv function...')
+        for id_, y in tqdm.tqdm(zip(ids, y_predict)):
+            csv_f = predict_dir / f'{id_}_conv.csv'
+            xas2csv(e, convoluter.convolute(y), csv_f)
+        print()
+        
     return 0
