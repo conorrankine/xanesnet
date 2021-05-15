@@ -30,22 +30,22 @@ from pathlib import Path
 from sklearn.model_selection import RepeatedKFold
 from sklearn.preprocessing import StandardScaler
 
-from core_utils import check_gpu_support
-from core_utils import load_user_input_f
-from core_utils import load_data_ids
-from core_utils import load_csv_input_f
-from core_utils import xyz2x
-from core_utils import xas2y
-from core_utils import get_kf_idxs
-from core_utils import compile_mlp
-from core_utils import fit_net
-from core_utils import log2csv
-from core_utils import xas2csv
-from core_utils import metrics2csv
-from descriptors import CoulombMatrix
-from descriptors import RadDistCurve
-from descriptors import WACSF
-from convolute import ArctanConvoluter
+from xanesnet.core_utils import check_gpu_support
+from xanesnet.core_utils import load_user_input_f
+from xanesnet.core_utils import load_data_ids
+from xanesnet.core_utils import load_csv_input_f
+from xanesnet.core_utils import xyz2x
+from xanesnet.core_utils import xas2y
+from xanesnet.core_utils import get_kf_idxs
+from xanesnet.core_utils import compile_mlp
+from xanesnet.core_utils import fit_net
+from xanesnet.core_utils import log2csv
+from xanesnet.core_utils import xas2csv
+from xanesnet.core_utils import metrics2csv
+from xanesnet.descriptors import CoulombMatrix
+from xanesnet.descriptors import RadDistCurve
+from xanesnet.descriptors import WACSF
+from xanesnet.convolute import ArctanConvoluter
 
 ###############################################################################
 ################################## FUNCTIONS ##################################
