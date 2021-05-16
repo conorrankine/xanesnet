@@ -1,26 +1,25 @@
-<h1 align = "center">
-    <br>
-        <img src = "./resources/xanesnet_graphic.png" width = "300">
-    <br>
-        <strong>
-            X A N E S N E T
-        </strong>
-    <br>
-</h1>
+<table align="center">
+<tr><td align="center" width="10000">
 
-<p align = "center">
+<img src = "./resources/xanesnet_graphic.png" width = "380">
+
+# <strong> X A N E S N E T </strong>
+
+<p>
     <a href="https://linkedin.com/in/conorrankine">Dr. Conor D. Rankine </a>
     <br>
     <a href="https://ncl.ac.uk/nes/people/profile/tompenfold.html">Dr. Tom J. Penfold </a>
 </p>
 
-<p align = "center">
+<p>
     <a href="http://penfoldgroup.co.uk">Penfold Group </a> @ <a href="https://ncl.ac.uk">Newcastle University </a>
 </p>
 
-<p align = "center">
+<p>
     <a href="#setup">Setup</a> • <a href="#quickstart">Quickstart</a> • <a href="#publications">Publications</a>
 </p>
+
+</td></tr></table>
 
 #
 
@@ -31,8 +30,6 @@ The popularity of XS is on a steep upward trajectory globally, driven by advance
 This is a tall order - but we're using deep neural networks to make this a reality. 
 
 XANESNET is under continuous development, so feel free to flag up any issues/make pull requests - we appreciate your input!
-
-#
 
 ## SETUP
 
@@ -55,8 +52,6 @@ pip install .
 ```
 
 Now you're good to go!
-
-#
 
 ## QUICKSTART
 
@@ -106,8 +101,6 @@ You can see all the available options for the ```predict``` routine with:
 python3 -m xanesnet.cli predict -h
 ```
 
-#
-
 ## PUBLICATIONS
 
 ### The Program:
@@ -118,5 +111,3 @@ python3 -m xanesnet.cli predict -h
 
 ### Miscellaneous:
 *[The Role of Structural Representation in the Performance of a Deep Neural Network for X-ray Spectroscopy](https://doi.org/10.3390/molecules25112715)* - M. M. M. Madkhali, C. D. Rankine, and T. J. Penfold, *Molecules*, 2020, **25**, 2715.
-
-#
