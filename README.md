@@ -1,8 +1,38 @@
-# X A N E S N E T 
+<h1 align = "center">
+    <br>
+        <img src = "./resources/xanesnet_graphic.png" width = "300">
+    <br>
+        <strong>
+            X A N E S N E T
+        </strong>
+    <br>
+</h1>
 
-The aim of the XANESNET Project is to make the theoretical simulation of X-ray spectroscopy (XS) fast, affordable, and accessible to all researchers using deep learning. 
+<p align = "center">
+    <a href="https://linkedin.com/in/conorrankine">Dr. Conor D. Rankine </a>
+    <br>
+    <a href="https://ncl.ac.uk/nes/people/profile/tompenfold.html">Dr. Tom J. Penfold </a>
+</p>
 
-The popularity of XS is on a steep upward trajectory globally, driven by advances at, and widening access to, high-brilliance light sources such as synchrotrons and X-ray free-electron lasers (XFELs). However, the high resolution of modern X-ray spectra, coupled with ever-increasing data acquisition rates, brings into focus the challenge of accurately and cost-effectively analyzing these data. Decoding the dense information content of modern X-ray spectra demands detailed theoretical calculations that are capable of capturing satisfactorily the complexity of the underlying physics but that are - at the same time - fast, affordable, and accessible enough to appeal to researchers. This is a tall order - but we're using deep neural networks to make this a reality. 
+<p align = "center">
+    <a href="http://penfoldgroup.co.uk">Penfold Group </a> @ <a href="https://ncl.ac.uk">Newcastle University </a>
+</p>
+
+<p align = "center">
+    <a href="#setup">Setup</a> • <a href="#quickstart">Quickstart</a> • <a href="#publications">Publications</a>
+</p>
+
+#
+
+We think that the theoretical simulation of X-ray spectroscopy (XS) should be fast, affordable, and accessible to all researchers. 
+
+The popularity of XS is on a steep upward trajectory globally, driven by advances at, and widening access to, high-brilliance light sources such as synchrotrons and X-ray free-electron lasers (XFELs). However, the high resolution of modern X-ray spectra, coupled with ever-increasing data acquisition rates, brings into focus the challenge of accurately and cost-effectively analyzing these data. Decoding the dense information content of modern X-ray spectra demands detailed theoretical calculations that are capable of capturing satisfactorily the complexity of the underlying physics but that are - at the same time - fast, affordable, and accessible enough to appeal to researchers. 
+
+This is a tall order - but we're using deep neural networks to make this a reality. 
+
+XANESNET is under continuous development, so feel free to flag up any issues/make pull requests - we appreciate your input!
+
+#
 
 ## SETUP
 
@@ -25,6 +55,8 @@ pip install .
 ```
 
 Now you're good to go!
+
+#
 
 ## QUICKSTART
 
@@ -74,13 +106,17 @@ You can see all the available options for the ```predict``` routine with:
 python3 -m xanesnet.cli predict -h
 ```
 
+#
+
 ## PUBLICATIONS
 
 ### The Program:
-*A Deep Neural Network for the Rapid Prediction of X-ray Absorption Spectra* - C. D. Rankine, M. M. M. Madkhali, and T. J. Penfold, *J. Phys. Chem. A*, 2020, **124**, 4263-4270. {DOI: doi.org/10.1021/acs.jpca.0c03723}
+*[A Deep Neural Network for the Rapid Prediction of X-ray Absorption Spectra](https://doi.org/10.1021/acs.jpca.0c03723)* - C. D. Rankine, M. M. M. Madkhali, and T. J. Penfold, *J. Phys. Chem. A*, 2020, **124**, 4263-4270.
 
 ### The Applications:
-*Enhancing the Anaysis of Disorder in X-ray Absorption Spectra: Application of Deep Neural Networks to T-Jump-X-ray Probe Experiments* - M. M. M. Madkhali, C. D. Rankine, and T. J. Penfold, *Phys. Chem. Chem. Phys.*, 2021, **23**, 9259-9269. {DOI: doi.org/10.1039/D0CP06244H}
+*[Enhancing the Anaysis of Disorder in X-ray Absorption Spectra: Application of Deep Neural Networks to T-Jump-X-ray Probe Experiments](https://doi.org/10.1039/D0CP06244H)* - M. M. M. Madkhali, C. D. Rankine, and T. J. Penfold, *Phys. Chem. Chem. Phys.*, 2021, **23**, 9259-9269.
 
 ### Miscellaneous:
-*The Role of Structural Representation in the Performance of a Deep Neural Network for X-ray Spectroscopy* - M. M. M. Madkhali, C. D. Rankine, and T. J. Penfold, *Molecules*, 2020, **25**, 2715. {DOI: doi.org/10.3390/molecules25112715}
+*[The Role of Structural Representation in the Performance of a Deep Neural Network for X-ray Spectroscopy](https://doi.org/10.3390/molecules25112715)* - M. M. M. Madkhali, C. D. Rankine, and T. J. Penfold, *Molecules*, 2020, **25**, 2715.
+
+#
