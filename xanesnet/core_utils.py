@@ -178,7 +178,7 @@ def compile_mlp(inp_dim: int, out_dim: int, n_hl: int, ini_hl_dim: int,
 
     return net
 
-def fit_net(net: Sequential, train_data: np.ndarray, test_data: np.ndarray, 
+def fit_net(net: Sequential, train_data: tuple, test_data: tuple, 
             epochs: int, batch_size: int, chk_dir: str, 
             log_dir: str) -> (Sequential, dict):
 
