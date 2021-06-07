@@ -123,7 +123,7 @@ def learn(inp_f: str):
 
     y_spooler = (y_dir / (id_ + '.txt') for id_ in ids)
     print('>> spooling files to the xas2y function...')
-    e, y = zip(*[xas2y(f, inp['xas_gridsize']) for f in tqdm.tqdm(y_spooler)])
+    e, y = zip(*[xas2y(f) for f in tqdm.tqdm(y_spooler)])
     print()
 
     with open(pkl_dir / 'e_scale.pkl', 'wb') as f:

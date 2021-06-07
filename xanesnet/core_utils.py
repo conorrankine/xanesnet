@@ -30,7 +30,6 @@ from tensorflow.keras.callbacks import TensorBoard, ModelCheckpoint
 from tensorflow.keras.utils import Sequence
 from sklearn.model_selection import RepeatedKFold
 from sklearn.preprocessing import StandardScaler
-from scipy.interpolate import interp1d
 from ase import Atoms
 
 ###############################################################################
@@ -122,7 +121,7 @@ def xyz2x(xyz_f: str, descriptor) -> np.ndarray:
 
     return features
 
-def xas2y(xas_f: str, gridsize: int) -> (np.ndarray, np.ndarray):
+def xas2y(xas_f: str) -> (np.ndarray, np.ndarray):
 
     with open(xas_f) as f:
         xas_f_l = [l.strip().split() for l in f]
@@ -132,11 +131,7 @@ def xas2y(xas_f: str, gridsize: int) -> (np.ndarray, np.ndarray):
 
     mu /= mu[-1]
 
-    interp_f = interp1d(e, mu, kind = 'cubic', assume_sorted = True)
-    e_interp = np.linspace(np.min(e), np.max(e), gridsize)
-    mu_interp = interp_f(e_interp)
-
-    return e_interp, mu_interp
+    return e, mu
 
 def get_kf_idxs(ids: list, n_splits: int, 
                 n_repeats: int) -> (np.ndarray, np.ndarray):
