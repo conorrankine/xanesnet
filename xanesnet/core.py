@@ -31,7 +31,6 @@ from sklearn.model_selection import RepeatedKFold
 from sklearn.preprocessing import StandardScaler
 
 from xanesnet.core_utils import check_gpu_support
-from xanesnet.core_utils import load_user_input_f
 from xanesnet.core_utils import load_data_ids
 from xanesnet.core_utils import load_csv_input_f
 from xanesnet.core_utils import xyz2x
@@ -51,29 +50,75 @@ from xanesnet.convolute import ArctanConvoluter
 ################################## FUNCTIONS ##################################
 ###############################################################################
 
-def learn(inp_f: str):
+def learn(x_dir: str,
+          y_dir: str,
+          features: str,
+          feature_vars: dict,
+          max_samples: int = 0,
+          n_kf_splits: int = 0,
+          n_kf_cycles: int = 1,
+          n_hl: int = 1,
+          ini_hl_dim: int = 100,
+          hl_shrink: float = 1.0,
+          activation: str = 'relu',
+          loss: str = 'mse',
+          lr: float = 0.001,
+          dropout: float = 0.0,
+          kernel_init: str = 'he_uniform',
+          bias_init: str = 'zeros',
+          epochs: int = 100,
+          batch_size: int = 10,
+          **kwargs):
     """
-    The main runtime routine for 'learn' mode. The data are loaded, transformed
-    into descriptors, shuffled, scaled, and split into training and validation 
-    k-folds - all as specified in the input file (see examples & docs). A  
-    neural network is instantiated (also as specified in the input file) and 
-    fit to the data. 
+    LEARN. The .xyz (X) and XANES spectral (Y) data are loaded, featurised, 
+    shuffled, scaled, and split into training and testing/validation k-folds; 
+    a neural network is set up and fit to these data to find an Y <- X mapping.
+    The runtime routine creates a model.[?] directory in the current workspace;
+    this directory is organised hierarchically: 
     
-    This runtime routine creates a model.xxxxxxx directory in
-    the current workspace; this directory is organised hierarchically: 
-    
-    > model.xxxxxxxx
-      ~ model.hdf5 (the optimised TensorFlow/Keras model in .hdf5 format)
+    > model.[?]
+      ~ model.hdf5 (an optimised TensorFlow/Keras model in .hdf5 format)
       > out (contains useful summary statistics in .csv format)
       > pkl (contains retained serialised objects in .pkl format)
       > tf (contains retained TensorFlow/Keras intermediate files)
-      
-    The model.xxxxxxxx directory is required to launch the main runtime routine
-    for 'predict' mode as many of the contents have to be loaded.
 
     Args:
-        inp_f (str): The path to a .txt input file with variable definitions
-                     (see examples & docs).
+        x_dir (str): A path to the .xyz (X) data; expects a directory
+            containing .xyz files 
+        y_dir (str): A path to the XANES spectral (Y) data; expects a directory
+            containing .txt FDMNES output files
+        features (str): The type of featurisation to use, e.g. Coulomb matrices
+            ('cmat'), radial distribution curves ('rdc'), etc.
+        feature_vars (dict): The variable definitions required for the type of 
+            featurisation as a dictionary of keywords
+        max_samples (int, optional): The maximum number of (X|Y) data samples 
+            to use; if 0, all available data samples are used. Defaults to 0.
+        n_kf_splits (int, optional): The number of K-fold splits to use; if 0,
+            K-fold CV is not used. Defaults to 0.
+        n_kf_cycles (int, optional): The number of K-fold cycles to run; if 1,
+            and n_kf_splits == 0, K-fold CV is not used. Defaults to 1.
+        n_hl (int, optional): The number of dense hidden layers in the neural 
+            network. Defaults to 0.
+        ini_hl_dim (int, optional): The dimension (in neurons) of the initial
+            hidden layer in the neural network. Defaults to 0.
+        hl_shrink (float, optional): The hidden-layer-to-layer shrinkage factor
+            for the neural network. Defaults to 0.0.
+        activation (str, optional): The activation for the neural network (see 
+            X). Defaults to 'relu'.
+        loss (str, optional): The loss function for the neural network (see
+            X). Defaults to 'mse'.
+        lr (float, optional): The learning rate for the neural network. 
+            Defaults to 0.001.
+        dropout (float, optional): The dropout for the neural network (see 
+            X). Defaults to 0.0.
+        kernel_init (str, optional): The protocol for kernel initialisation in
+            the neural network. Defaults to 'he_uniform'.
+        bias_init (str, optional): The protocol for bias initialisation in
+            the neural network. Defaults to 'zeros'.
+        epochs (int, optional): The maximum number of epochs to train the
+            neural network over. Defaults to 100.
+        batch_size (int, optional): The minibatch size to use when calculating
+            the gradient of the loss function. Defaults to 10.
     """
 
     mdl_dir = Path(f'./model.{int(time.time())}')
@@ -86,32 +131,25 @@ def learn(inp_f: str):
 
     check_gpu_support()
 
-    inp = load_user_input_f(inp_f)
-
-    x_dir = Path(inp['x_dir'])
-    y_dir = Path(inp['y_dir'])
+    x_dir = Path(x_dir)
+    y_dir = Path(y_dir)
 
     ids = load_data_ids(x_dir, y_dir)
 
     random.shuffle(ids)
 
-    if inp['max_samples']:
-        ids = ids[:inp['max_samples']]
+    if max_samples:
+        ids = ids[:max_samples]
 
-    if inp['features'] == 'cmat':
-        featuriser = CoulombMatrix(inp['n_max'])
-    elif inp['features'] == 'rdc':
-        featuriser = RadDistCurve(inp['r_max'], inp['gridsize'], inp['alpha'])
-    elif inp['features'] == 'wacsf':
-        g2_vars = (load_csv_input_f(inp['g2_var_f']) 
-                   if 'g2_var_f' in inp else None)
-        g4_vars = (load_csv_input_f(inp['g4_var_f']) 
-                   if 'g4_var_f' in inp else None)
-        featuriser = WACSF(inp['r_max'], g2_vars = g2_vars, g4_vars = g4_vars)                                                         
+    if features == 'cmat':
+        featuriser = CoulombMatrix(**feature_vars)
+    elif features == 'rdc':
+        featuriser = RadDistCurve(**feature_vars)
+    elif features == 'wacsf':
+        featuriser = WACSF(**feature_vars)
     else:
-        raise ValueError((f'{inp["features"]} is not implemented as a ',
-                          'featurisation type; use \'cmat\', \'rdc\', or ',
-                          '\'wacsf\''))
+        raise ValueError((f'\'{features}\' is not a recognised kind of '
+                          'featurisation; check docs & examples for options'))
 
     with open(pkl_dir / 'featuriser.pkl', 'wb') as f:
         pickle.dump(featuriser, f)
@@ -129,7 +167,7 @@ def learn(inp_f: str):
     with open(pkl_dir / 'e_scale.pkl', 'wb') as f:
         pickle.dump(e[0], f)
 
-    kf_idxs = get_kf_idxs(ids, inp['n_splits'], inp['n_repeats'])
+    kf_idxs = get_kf_idxs(ids, n_kf_splits, n_kf_cycles)
 
     for kf_n, kf_idxs_pair in enumerate(kf_idxs):
 
@@ -157,23 +195,23 @@ def learn(inp_f: str):
 
         net = compile_mlp(inp_dim = x_train[0].size, 
                           out_dim = y_train[0].size, 
-                          n_hl = inp['n_hl'],
-                          ini_hl_dim = inp['ini_hl_dim'],
-                          hl_shrink = inp['hl_shrink'],
-                          activation = inp['activation'],
-                          dropout = inp['dropout'], 
-                          lr = inp['lr'],
-                          kernel_init = inp['kernel_init'],
-                          bias_init = inp['bias_init'],
-                          loss = inp['loss'])
+                          n_hl = n_hl,
+                          ini_hl_dim = ini_hl_dim,
+                          hl_shrink = hl_shrink,
+                          activation = activation,
+                          dropout = dropout, 
+                          lr = lr,
+                          kernel_init = kernel_init,
+                          bias_init = bias_init,
+                          loss = loss)
 
         net, log = fit_net(net = net, 
                            train_data = (np.array(x_train, dtype = 'float64'), 
                                          np.array(y_train, dtype = 'float64')), 
                            test_data = (np.array(x_test, dtype = 'float64'), 
                                         np.array(y_test, dtype = 'float64')), 
-                           epochs = inp['epochs'],
-                           batch_size = inp['batch_size'],
+                           epochs = epochs,
+                           batch_size = batch_size,
                            chk_dir = chk_dir,
                            log_dir = log_dir)
 
@@ -185,27 +223,28 @@ def learn(inp_f: str):
     
     return 0
 
-def predict(mdl_dir: str, xyz_dir: str, conv_inp_f = None):
+def predict(mdl_dir: str, 
+            xyz_dir: str, 
+            conv_vars: dict = {},
+            **kwargs):
     """
-    The main runtime routine for 'predict' mode. A neural network is restored 
-    from a model.xxxxxxxx directory created by launching the runtime routine 
-    for 'learn' mode. The data for prediction are loaded, transformed into 
-    descriptors, and scaled - all consistently with the run that created
-    the model.xxxxxxxx directory. The neural network is then used to predict 
-    the XANES spectra. Optionally, the predicted XANES spectra can be 
-    convoluted with an energy-dependent arctan function (see convolute.py). 
-    
-    This runtime routine creates a predict.xxxxxxx directory in the current 
-    workspace; this directory contains the predictions from the neural network.
+    PREDICT. The neural network is restored from the model.[?] directory created
+    by launching the LEARN routine. The .xyz data for prediction are loaded, 
+    featurised, and scaled consistently with the run that created the model.[?]
+    directory. The neural network is used to predict the corresponding XANES
+    spectra. Optionally, the predicted XANES spectra can be convoluted with an 
+    energy-dependent arctan function (see xanesnet/convolute.py). The runtime
+    routine creates a predict.[?] directory in the current workspace; this 
+    directory contains the predicted XANES spectra.
 
     Args:
-        mdl_dir (str): The path to a model.xxxxxxxx directory generated 
-                       using the 'learn' runtime routine.
-        xyz_dir (str): The path to a directory with .xyzs; XANES spectra will
-                       be predicted for each .xyz.
-        conv_inp_f (str, optional): The path to a .txt input file with variable
-                                    definitions for arctan convolution (see
-                                    examples & docs). Defaults to None.
+        mdl_dir (str): The path to a model.[?] directory created by launching
+            the LEARN routine.
+        xyz_dir (str): The path to a directory containing .xyz data; the neural
+            network is used to predict the corresponding XANES spectra.        
+        conv_inp_f (dict, optional): The variable definitions for arctan 
+            convolution as a dictionary, i.e. the variables necessary to set up
+            an ArctanConvoluter object (see xanesnet/convolute.py).
     """
 
     predict_dir = Path(f'./predict.{int(time.time())}')
@@ -245,16 +284,9 @@ def predict(mdl_dir: str, xyz_dir: str, conv_inp_f = None):
         xas2csv(e, y, csv_f)
     print()
 
-    if conv_inp_f:
-
-        conv_inp = load_user_input_f(conv_inp_f)
+    if conv_vars:
         
-        convoluter = ArctanConvoluter(e, e_edge = conv_inp['e_edge'],
-                                         e_l = conv_inp['e_l'],
-                                         e_c = conv_inp['e_c'],
-                                         e_f = conv_inp['e_f'],
-                                         g_hole = conv_inp['g_hole'],
-                                         g_max = conv_inp['g_max'])
+        convoluter = ArctanConvoluter(e, **conv_vars)
 
         print('>> spooling conv. predictions to the xas2csv function...')
         for id_, y in tqdm.tqdm(zip(ids, y_predict)):

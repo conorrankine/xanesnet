@@ -20,9 +20,9 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 ###############################################################################
 
 import sys as sys
+import ast as ast
 
 from argparse import ArgumentParser
-from argparse import Namespace
 
 import xanesnet
 
@@ -33,7 +33,7 @@ from xanesnet.core import predict
 ############################ CLI ARGUMENT PARSING #############################
 ###############################################################################
 
-def parse_args(args: list) -> Namespace:
+def parse_args(args: list):
 
     p = ArgumentParser()
     
@@ -41,24 +41,42 @@ def parse_args(args: list) -> Namespace:
 
     learn_p = sub_p.add_parser('learn')
     learn_p.add_argument('inp_f', type = str, 
-                         help = ('path to a .txt input file with variable ',
-                                 'definitions (see examples & docs)'))
+        help = ('path to a .txt input file with variable definitions ',
+                '(see examples & docs)'))
 
     predict_p = sub_p.add_parser('predict')
     predict_p.add_argument('mdl_dir', type = str, 
-                           help = ('path to a model.xxxxxxxx directory '
-                                   'generated using learn mode'))
+        help = ('path to a model.[?] directory created using learn mode'))
     predict_p.add_argument('xyz_dir', type = str, 
-                           help = ('path to a directory with .xyzs; XANES '
-                                   'spectra will be predicted for each .xyz'))
+        help = ('path to a directory containing .xyzs to predict with'))
     predict_p.add_argument('-c', '--conv_inp_f', type = str, 
-                           help = ('path to .txt input file with variable ',
-                                   'definitions for arctan convolution (see ',
-                                   'examples & docs'))
+        help = ('path to .txt input file with variable definitions ',
+                'for arctan convolution (see examples & docs'))
     
     args = p.parse_args()
 
     return args  
+
+def load_input_f(inp_f: str) -> dict:
+
+    print(f'>> loading user input @ {inp_f}\n')
+   
+    inp = {}
+    
+    with open(inp_f) as f:
+        ls = [l for l in f if l.strip() and not l.startswith('#')]
+
+    for l in ls:
+        (var, val) = l.split('=')
+        print(f'>> {var.strip()} :: {val.strip()}')
+        try:
+            inp[var.strip()] = ast.literal_eval(val.strip())
+        except ValueError:
+            inp[var.strip()] = val.strip()
+
+    print()
+
+    return inp
 
 ###############################################################################
 ################################ MAIN ROUTINE #################################
@@ -103,10 +121,11 @@ def main(args: list):
           f'\n***************************************************************\n')
 
     if args.mode == 'learn':
-        learn(args.inp_f)
+        learn(**load_input_f(args.inp_f))
 
     if args.mode == 'predict':
-        predict(args.mdl_dir, args.xyz_dir, args.conv_inp_f)
+        conv_vars = load_input_f(args.conv_inp_f) if args.conv_inp_f else {}
+        predict(args.mdl_dir, args.xyz_dir, conv_vars = conv_vars)
 
     print('\n***************************************************************',
           '\n************************** all done! **************************',

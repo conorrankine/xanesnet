@@ -51,27 +51,6 @@ def check_gpu_support():
 
     return 0
 
-def load_user_input_f(inp_f: str) -> dict:
-
-    print(f'>> loading user input @ {inp_f}\n')
-    
-    inp = {}
-    
-    with open(inp_f) as f:
-        ls = [l for l in f if l.strip() and not l.startswith('#')]
-
-    for l in ls:
-        (var, val) = l.split('=')
-        print(f'>> {var.strip()} :: {val.strip()}')
-        try:
-            inp[var.strip()] = ast.literal_eval(val.strip())
-        except ValueError:
-            inp[var.strip()] = val.strip()
-
-    print()
-
-    return inp
-
 def load_data_ids(*dirs: str) -> list:
 
     print('>> listing supplied data sources:')
