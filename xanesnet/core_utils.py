@@ -30,9 +30,6 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import Dropout
 from tensorflow.keras.layers import Activation
-from tensorflow.keras.callbacks import CSVLogger
-from tensorflow.keras.callbacks import TensorBoard
-from tensorflow.keras.callbacks import ModelCheckpoint
 
 ###############################################################################
 ################################## FUNCTIONS ##################################
@@ -183,39 +180,6 @@ def compile_mlp(inp_dim: int,
 
     return net
 
-def fit_net(net: Sequential, 
-            train_data: tuple, 
-            test_data: tuple, 
-            epochs: int, 
-            batch_size: int, 
-            chk_dir: str, 
-            log_dir: str) -> (Sequential):
-
-    chk = ModelCheckpoint(str(chk_dir / 'chk'),            
-                          monitor = 'val_loss', 
-                          save_weights_only = 'true',
-                          save_best_only = 'true',
-                          mode = 'auto',
-                          verbose = 0)
-
-    csvlog = CSVLogger(str(log_dir / 'log.csv'))
-
-    callbacks = [chk, csvlog]
-
-    net.fit(*train_data,
-             epochs = epochs, 
-             batch_size = batch_size, 
-             callbacks = callbacks,
-             validation_data = test_data,
-             shuffle = True, 
-             verbose = 2)
-    
-    net.load_weights(str(chk_dir / 'chk'))
-
-    print()
-
-    return net
-
 def xas2csv(e: np.ndarray, mu: np.ndarray, xas_f: str):
     # writes a np.ndarray XANES spectrum (e = energy scale; mu = spectral 
     # intensity) in .csv format to a file (xas_f)
@@ -233,8 +197,6 @@ def metrics2csv(out_dir: str, tf_dir: str):
     # writes summary statistics derived from K-fold data in the TensorFlow
     # directory (tf_dir) in .csv format to files (out_dir/epochs.csv + 
     # out_dir/best.csv)
-
-    print(f'>> saving net performance stats @ {out_dir}')
 
     metrics = np.array([np.genfromtxt(d / 'log' / 'log.csv', 
                         delimiter = ',')[:,1:] for d in tf_dir.iterdir()])

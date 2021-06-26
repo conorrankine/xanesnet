@@ -29,6 +29,11 @@ import time as time
 from pathlib import Path
 from sklearn.model_selection import RepeatedKFold
 from sklearn.preprocessing import StandardScaler
+from tensorflow.keras.callbacks import CSVLogger
+from tensorflow.keras.callbacks import TensorBoard
+from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.callbacks import ModelCheckpoint
+from tensorflow.keras.callbacks import ReduceLROnPlateau
 
 from xanesnet.core_utils import check_gpu_support
 from xanesnet.core_utils import load_data_ids
@@ -37,7 +42,6 @@ from xanesnet.core_utils import xyz2x
 from xanesnet.core_utils import xas2y
 from xanesnet.core_utils import get_kf_idxs
 from xanesnet.core_utils import compile_mlp
-from xanesnet.core_utils import fit_net
 from xanesnet.core_utils import xas2csv
 from xanesnet.core_utils import metrics2csv
 from xanesnet.descriptors import CoulombMatrix
@@ -196,27 +200,63 @@ def learn(x_dir: str,
         for d in [kf_dir, log_dir, chk_dir]:
             d.mkdir()
 
-        net = compile_mlp(inp_dim = x_train[0].size, 
-                          out_dim = y_train[0].size, 
-                          n_hl = n_hl,
-                          ini_hl_dim = ini_hl_dim,
-                          hl_shrink = hl_shrink,
-                          activation = activation,
-                          dropout = dropout, 
-                          lr = lr,
-                          kernel_init = kernel_init,
-                          bias_init = bias_init,
-                          loss = loss)
+        net = compile_mlp(
+            inp_dim = x_train[0].size, 
+            out_dim = y_train[0].size, 
+            n_hl = n_hl,
+            ini_hl_dim = ini_hl_dim,
+            hl_shrink = hl_shrink,
+            activation = activation,
+            dropout = dropout, 
+            lr = lr,
+            kernel_init = kernel_init,
+            bias_init = bias_init,
+            loss = loss
+        )
 
-        net = fit_net(net = net, 
-                      train_data = (np.array(x_train, dtype = 'float64'), 
-                                    np.array(y_train, dtype = 'float64')), 
-                      test_data = (np.array(x_test, dtype = 'float64'), 
-                                   np.array(y_test, dtype = 'float64')), 
-                      epochs = epochs,
-                      batch_size = batch_size,
-                      chk_dir = chk_dir,
-                      log_dir = log_dir)
+        callbacks = []
+        
+        callbacks.append(
+            CSVLogger(
+                str(log_dir / 'log.csv')
+            )
+        )
+        
+        callbacks.append(
+            ModelCheckpoint(
+                str(chk_dir / 'chk'),
+                save_weights_only = True,
+                save_best_only = True
+            )
+        )
+        
+        if 'callback_reduce_lr' in kwargs:
+            callbacks.append(
+                ReduceLROnPlateau(
+                    **kwargs['callback_reduce_lr']
+                )
+            )
+            
+        if 'callback_early_stop' in kwargs:
+            callbacks.append(
+                EarlyStopping(
+                    **kwargs['callback_early_stop']
+                )
+            )
+
+        net.fit(
+            *(np.array(x_train, dtype = 'float64'), 
+              np.array(y_train, dtype = 'float64')),
+            validation_data = (np.array(x_test, dtype = 'float64'), 
+                               np.array(y_test, dtype = 'float64')),
+            epochs = epochs, 
+            batch_size = batch_size, 
+            callbacks = callbacks,
+            shuffle = True, 
+            verbose = 2
+        )
+    
+        net.load_weights(str(chk_dir / 'chk'))
 
         net.save(mdl_dir / 'net.hdf5')    
 
@@ -226,7 +266,6 @@ def learn(x_dir: str,
 
 def predict(mdl_dir: str, 
             xyz_dir: str, 
-            conv_vars: dict = {},
             **kwargs):
     """
     PREDICT. The neural network is restored from the model.[?] directory created
@@ -285,9 +324,9 @@ def predict(mdl_dir: str,
         xas2csv(e, y, csv_f)
     print()
 
-    if conv_vars:
+    if 'conv_vars' in kwargs:
         
-        convoluter = ArctanConvoluter(e, **conv_vars)
+        convoluter = ArctanConvoluter(e, **kwargs['conv_vars'])
 
         print('>> spooling conv. predictions to the xas2csv function...')
         for id_, y in tqdm.tqdm(zip(ids, y_predict)):
