@@ -236,7 +236,7 @@ def metrics2csv(out_dir: str, tf_dir: str):
 
     print(f'>> saving net performance stats @ {out_dir}')
 
-    metrics = np.array([np.genfromtxt(d / 'log' / 'metrics.csv', 
+    metrics = np.array([np.genfromtxt(d / 'log' / 'log.csv', 
                         delimiter = ',')[:,1:] for d in tf_dir.iterdir()])
     
     n_logs, n_epochs, _ = metrics.shape
