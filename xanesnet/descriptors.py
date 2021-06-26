@@ -34,7 +34,7 @@ class CoulombMatrix():
     > Phys. Rev. Lett., 2012, 108, 058301 (10.1103/PhysRevLett.108.058301)
     """
 
-    def __init__(self, n_max: int, sort = True, triu = True):
+    def __init__(self, n_max: int, sort = True, triu = True, **kwargs):
         """
         Args:
             n_max (int): The maximum number of atoms around (and inclusive of)
@@ -136,7 +136,7 @@ class RadDistCurve():
     absorption site and all atoms within a defined radial cutoff.
     """
 
-    def __init__(self, r_max: float, gridsize: int, alpha: float):
+    def __init__(self, r_max: float, gridsize: int, alpha: float, **kwargs):
         """
         Args:
             r_max (float): The maximum radial cutoff distance (in Angstrom)
@@ -251,7 +251,7 @@ class WACSF():
     > J. Chem. Phys., 2011, 134, 074106 (10.1063/1.3553717)
     """
 
-    def __init__(self, r_max: float, g2_vars = None, g4_vars = None):
+    def __init__(self, r_max: float, g2_vars = None, g4_vars = None, **kwargs):
         """
         Args:
             r_max (float): The maximum radial cutoff distance (in Angstrom)

@@ -32,7 +32,7 @@ from sklearn.preprocessing import StandardScaler
 
 from xanesnet.core_utils import check_gpu_support
 from xanesnet.core_utils import load_data_ids
-from xanesnet.core_utils import load_csv_input_f
+from xanesnet.core_utils import load_csv_f
 from xanesnet.core_utils import xyz2x
 from xanesnet.core_utils import xas2y
 from xanesnet.core_utils import get_kf_idxs
@@ -145,6 +145,10 @@ def learn(x_dir: str,
     elif features == 'rdc':
         featuriser = RadDistCurve(**feature_vars)
     elif features == 'wacsf':
+        if 'g2' in feature_vars:
+            feature_vars.update({'g2_vars': load_csv_f(feature_vars['g2'])})
+        if 'g4' in feature_vars:
+            feature_vars.update({'g4_vars': load_csv_f(feature_vars['g4'])})
         featuriser = WACSF(**feature_vars)
     else:
         raise ValueError((f'\'{features}\' is not a recognised kind of '

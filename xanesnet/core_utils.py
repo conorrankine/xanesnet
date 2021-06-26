@@ -82,7 +82,7 @@ def load_data_ids(*dirs: str) -> list:
 
     return ids
 
-def load_csv_input_f(csv_inp_f: str) -> list:
+def load_csv_f(csv_inp_f: str) -> list:
     # returns a list of (columnwise) lists from a .csv file (csv_inp_f); used
     # to load G2/G4 parameter files for setting up xanesnet.descriptors.WACSF
     # objects
