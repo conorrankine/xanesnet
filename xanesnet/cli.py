@@ -34,6 +34,7 @@ from xanesnet.core import predict
 ###############################################################################
 
 def parse_args(args: list):
+    # loads a list of command-line arguments into a namespace via argparser
 
     p = ArgumentParser()
     
@@ -58,6 +59,10 @@ def parse_args(args: list):
     return args  
 
 def load_input_f(inp_f: str) -> dict:
+    # loads a plaintext (.txt) input file into a dictionary - key/value pairs
+    # are expected to be '='-delimited (e.g. key = value) and entered 
+    # one-per-line; type is automatically determined (or otherwise assumed to 
+    # be string) and comment lines (starting with '#') are passed over
 
     print(f'>> loading user input @ {inp_f}\n')
    
