@@ -38,7 +38,6 @@ from xanesnet.core_utils import xas2y
 from xanesnet.core_utils import get_kf_idxs
 from xanesnet.core_utils import compile_mlp
 from xanesnet.core_utils import fit_net
-from xanesnet.core_utils import log2csv
 from xanesnet.core_utils import xas2csv
 from xanesnet.core_utils import metrics2csv
 from xanesnet.descriptors import CoulombMatrix
@@ -205,19 +204,17 @@ def learn(x_dir: str,
                           bias_init = bias_init,
                           loss = loss)
 
-        net, log = fit_net(net = net, 
-                           train_data = (np.array(x_train, dtype = 'float64'), 
-                                         np.array(y_train, dtype = 'float64')), 
-                           test_data = (np.array(x_test, dtype = 'float64'), 
-                                        np.array(y_test, dtype = 'float64')), 
-                           epochs = epochs,
-                           batch_size = batch_size,
-                           chk_dir = chk_dir,
-                           log_dir = log_dir)
+        net = fit_net(net = net, 
+                      train_data = (np.array(x_train, dtype = 'float64'), 
+                                    np.array(y_train, dtype = 'float64')), 
+                      test_data = (np.array(x_test, dtype = 'float64'), 
+                                   np.array(y_test, dtype = 'float64')), 
+                      epochs = epochs,
+                      batch_size = batch_size,
+                      chk_dir = chk_dir,
+                      log_dir = log_dir)
 
-        net.save(mdl_dir / 'net.hdf5')
-
-        log2csv(log, log_dir)     
+        net.save(mdl_dir / 'net.hdf5')    
 
     metrics2csv(out_dir, tf_dir)
     
