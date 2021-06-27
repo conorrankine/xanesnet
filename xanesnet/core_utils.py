@@ -140,37 +140,38 @@ def get_kf_idxs(ids: list, n_splits: int,
 
     return kf_idxs
 
-def compile_mlp(inp_dim: int, 
-                out_dim: int, 
-                n_hl: int, 
-                ini_hl_dim: int, 
-                hl_shrink: float, 
-                activation: str, 
-                dropout: float, 
-                lr: float, 
-                kernel_init: str, 
-                bias_init: str, 
-                loss: str) -> Sequential:
+def compile_mlp(
+    inp_dim: int, 
+    out_dim: int, 
+    n_hl: int, 
+    hl_ini_dim: int, 
+    hl_shrink: float, 
+    activation: str, 
+    loss: str,
+    lr: float,
+    dropout: float,
+    kernel_init: str,
+    bias_init: str
+) -> Sequential:
     # returns a tensorflow.keras.models.Sequential neural network set up 
     # according to specification via input arguments
 
     net = Sequential()
+    
+    ini_condition = {
+        "kernel_initializer": kernel_init,
+        "kernel_regularizer": None,
+        "bias_initializer": bias_init,
+        "bias_regularizer": None        
+    }
 
-    net.add(Dense(ini_hl_dim, input_dim = inp_dim,
-                  kernel_initializer = kernel_init,
-                  kernel_regularizer = None,
-                  bias_initializer = bias_init,
-                  bias_regularizer = None))
+    net.add(Dense(hl_ini_dim, input_dim = inp_dim, **ini_condition))
     net.add(Activation(activation))
     net.add(Dropout(dropout))
     
     for i in range(n_hl - 1):
-        hl_dim = (int(ini_hl_dim * (hl_shrink ** (i + 1))))
-        net.add(Dense(hl_dim if (hl_dim > 1) else 1, 
-                      kernel_initializer = kernel_init,
-                      kernel_regularizer = None,
-                      bias_initializer = bias_init,
-                      bias_regularizer = None))
+        hl_dim = (int(hl_ini_dim * (hl_shrink ** (i + 1))))
+        net.add(Dense(hl_dim if (hl_dim > 1) else 1, **ini_condition))
         net.add(Activation(activation))
         net.add(Dropout(dropout))
     

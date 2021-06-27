@@ -19,8 +19,8 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 ############################### LIBRARY IMPORTS ###############################
 ###############################################################################
 
-import sys as sys
-import ast as ast
+import sys
+import json
 
 from argparse import ArgumentParser
 
@@ -34,7 +34,6 @@ from xanesnet.core import predict
 ###############################################################################
 
 def parse_args(args: list):
-    # loads a list of command-line arguments into a namespace via argparser
 
     p = ArgumentParser()
     
@@ -58,28 +57,28 @@ def parse_args(args: list):
 
     return args  
 
-def load_input_f(inp_f: str) -> dict:
-    # loads a plaintext (.txt) input file into a dictionary - key/value pairs
-    # are expected to be '='-delimited (e.g. key = value) and entered 
-    # one-per-line; type is automatically determined (or otherwise assumed to 
-    # be string) and comment lines (starting with '#') are passed over
-
-    print(f'>> loading user input @ {inp_f}\n')
-   
-    inp = {}
+def load_json_inp_f(json_inp_f: str) -> dict:
     
-    with open(inp_f) as f:
-        ls = [l for l in f if l.strip() and not l.startswith('#')]
+    if json_inp_f:
 
-    for l in ls:
-        (var, val) = l.split('=')
-        print(f'>> {var.strip()} :: {val.strip()}')
-        try:
-            inp[var.strip()] = ast.literal_eval(val.strip())
-        except ValueError:
-            inp[var.strip()] = val.strip()
+        print(f'>> loading JSON user input @ {json_inp_f}\n')
+    
+        with open(json_inp_f) as f:
+            inp = json.load(f)
 
-    print()
+        for key, val in inp.items():
+            if isinstance(val, dict):
+                print(f'>> {key}')
+                for subkey, subval in val.items():
+                    print(' ' * 3 + f'>> {subkey} :: {subval}')
+            else:
+                print(f'>> {key} :: {val}')
+        
+        print()
+        
+    else:
+        
+        inp = {}
 
     return inp
 
@@ -126,12 +125,11 @@ def main(args: list):
           f'\n***************************************************************\n')
 
     if args.mode == 'learn':
-        learn(**load_input_f(args.inp_f))
+        learn(**load_json_inp_f(args.inp_f))
 
     if args.mode == 'predict':
-        conv_vars = load_input_f(args.conv_inp_f) if args.conv_inp_f else {}
-        predict(args.mdl_dir, args.xyz_dir, conv_vars = conv_vars)
-
+        predict(args.mdl_dir, args.xyz_dir, **load_json_inp_f(args.conv_inp_f)) 
+        
     print('\n***************************************************************',
           '\n************************** all done! **************************',
           '\n***************************************************************\n')

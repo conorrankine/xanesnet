@@ -53,25 +53,20 @@ from xanesnet.convolute import ArctanConvoluter
 ################################## FUNCTIONS ##################################
 ###############################################################################
 
-def learn(x_dir: str,
-          y_dir: str,
-          features: str,
-          feature_vars: dict,
-          max_samples: int = 0,
-          n_kf_splits: int = 0,
-          n_kf_cycles: int = 1,
-          n_hl: int = 1,
-          ini_hl_dim: int = 100,
-          hl_shrink: float = 1.0,
-          activation: str = 'relu',
-          loss: str = 'mse',
-          lr: float = 0.001,
-          dropout: float = 0.0,
-          kernel_init: str = 'he_uniform',
-          bias_init: str = 'zeros',
-          epochs: int = 100,
-          batch_size: int = 10,
-          **kwargs):
+def learn(
+    x: str,
+    y: str,
+    features: str,
+    feature_vars: dict,
+    n_kf_splits: int = 0,
+    n_kf_cycles: int = 1,
+    max_samples: int = 0,
+    hyperparams: dict = {},
+    epochs: int = 100,
+    callback_reducelronplateau: dict = {},
+    callback_earlystopping: dict = {},
+    **kwargs
+):
     """
     LEARN. The .xyz (X) and XANES spectral (Y) data are loaded, featurised, 
     shuffled, scaled, and split into training and testing/validation k-folds; 
@@ -86,42 +81,31 @@ def learn(x_dir: str,
       > tf (contains retained TensorFlow/Keras intermediate files)
 
     Args:
-        x_dir (str): A path to the .xyz (X) data; expects a directory
-            containing .xyz files 
-        y_dir (str): A path to the XANES spectral (Y) data; expects a directory
-            containing .txt FDMNES output files
+        x (str): The path to the .xyz (X) data; expects a directory containing
+            .xyz files. 
+        y (str): The path to the XANES spectral (Y) data; expects a directory
+            containing .txt FDMNES output files.
         features (str): The type of featurisation to use, e.g. Coulomb matrices
             ('cmat'), radial distribution curves ('rdc'), etc.
         feature_vars (dict): The variable definitions required for the type of 
-            featurisation as a dictionary of keywords
-        max_samples (int, optional): The maximum number of (X|Y) data samples 
-            to use; if 0, all available data samples are used. Defaults to 0.
+            featurisation as a dictionary of keywords.
         n_kf_splits (int, optional): The number of K-fold splits to use; if 0,
             K-fold CV is not used. Defaults to 0.
         n_kf_cycles (int, optional): The number of K-fold cycles to run; if 1,
             and n_kf_splits == 0, K-fold CV is not used. Defaults to 1.
-        n_hl (int, optional): The number of dense hidden layers in the neural 
-            network. Defaults to 0.
-        ini_hl_dim (int, optional): The dimension (in neurons) of the initial
-            hidden layer in the neural network. Defaults to 0.
-        hl_shrink (float, optional): The hidden-layer-to-layer shrinkage factor
-            for the neural network. Defaults to 0.0.
-        activation (str, optional): The activation for the neural network (see 
-            X). Defaults to 'relu'.
-        loss (str, optional): The loss function for the neural network (see
-            X). Defaults to 'mse'.
-        lr (float, optional): The learning rate for the neural network. 
-            Defaults to 0.001.
-        dropout (float, optional): The dropout for the neural network (see 
-            X). Defaults to 0.0.
-        kernel_init (str, optional): The protocol for kernel initialisation in
-            the neural network. Defaults to 'he_uniform'.
-        bias_init (str, optional): The protocol for bias initialisation in
-            the neural network. Defaults to 'zeros'.
-        epochs (int, optional): The maximum number of epochs to train the
-            neural network over. Defaults to 100.
-        batch_size (int, optional): The minibatch size to use when calculating
-            the gradient of the loss function. Defaults to 10.
+        max_samples (int, optional): The maximum number of (X|Y) data samples 
+            to use; if 0, all available data samples are used. Defaults to 0.
+        hyperparams (dict, optional): A dictionary of hyperparameter 
+            definitions used to configure a Sequential Keras neural network.
+            Defaults to {}.
+        epochs (int, optional): The maximum number of epochs/cycles over which
+            the neural network is fit. Defaults to 100.
+        callback_reducelronplateau (dict, optional): A dictionary of argument /
+            value pairs to pass through to the ReduceLROnPlateau Keras callback
+            (see keras.io/api/callbacks/reduce_lr_on_plateau/). Defaults to {}.
+        callback_earlystopping (dict, optional): A dictionary of argument /
+            value pairs to pass through to the EarlyStopping Keras callback
+            (see keras.io/api/callbacks/early_stopping/). Defaults to {}.
     """
 
     mdl_dir = Path(f'./model.{int(time.time())}')
@@ -134,10 +118,10 @@ def learn(x_dir: str,
 
     check_gpu_support()
 
-    x_dir = Path(x_dir)
-    y_dir = Path(y_dir)
+    x_path = Path(x)
+    y_path = Path(y)
 
-    ids = load_data_ids(x_dir, y_dir)
+    ids = load_data_ids(x_path, y_path)
 
     random.shuffle(ids)
 
@@ -161,12 +145,12 @@ def learn(x_dir: str,
     with open(pkl_dir / 'featuriser.pkl', 'wb') as f:
         pickle.dump(featuriser, f)
 
-    x_spooler = (x_dir / (id_ + '.xyz') for id_ in ids)
+    x_spooler = (x_path / (id_ + '.xyz') for id_ in ids)
     print('>> spooling files to the xyz2x function...')
     x = [xyz2x(f, featuriser) for f in tqdm.tqdm(x_spooler)]
     print()
 
-    y_spooler = (y_dir / (id_ + '.txt') for id_ in ids)
+    y_spooler = (y_path / (id_ + '.txt') for id_ in ids)
     print('>> spooling files to the xas2y function...')
     e, y = zip(*[xas2y(f) for f in tqdm.tqdm(y_spooler)])
     print()
@@ -203,15 +187,7 @@ def learn(x_dir: str,
         net = compile_mlp(
             inp_dim = x_train[0].size, 
             out_dim = y_train[0].size, 
-            n_hl = n_hl,
-            ini_hl_dim = ini_hl_dim,
-            hl_shrink = hl_shrink,
-            activation = activation,
-            dropout = dropout, 
-            lr = lr,
-            kernel_init = kernel_init,
-            bias_init = bias_init,
-            loss = loss
+            **hyperparams
         )
 
         callbacks = []
@@ -230,17 +206,17 @@ def learn(x_dir: str,
             )
         )
         
-        if 'callback_reduce_lr' in kwargs:
+        if callback_reducelronplateau:
             callbacks.append(
                 ReduceLROnPlateau(
-                    **kwargs['callback_reduce_lr']
+                    **callback_reducelronplateau
                 )
             )
             
-        if 'callback_early_stop' in kwargs:
+        if callback_earlystopping:
             callbacks.append(
                 EarlyStopping(
-                    **kwargs['callback_early_stop']
+                    **callback_earlystopping
                 )
             )
 
@@ -250,7 +226,6 @@ def learn(x_dir: str,
             validation_data = (np.array(x_test, dtype = 'float64'), 
                                np.array(y_test, dtype = 'float64')),
             epochs = epochs, 
-            batch_size = batch_size, 
             callbacks = callbacks,
             shuffle = True, 
             verbose = 2
@@ -264,9 +239,12 @@ def learn(x_dir: str,
     
     return 0
 
-def predict(mdl_dir: str, 
-            xyz_dir: str, 
-            **kwargs):
+def predict(
+    mdl_dir: str, 
+    xyz_dir: str,
+    conv_vars: dict = {}, 
+    **kwargs
+):
     """
     PREDICT. The neural network is restored from the model.[?] directory created
     by launching the LEARN routine. The .xyz data for prediction are loaded, 
@@ -280,9 +258,9 @@ def predict(mdl_dir: str,
     Args:
         mdl_dir (str): The path to a model.[?] directory created by launching
             the LEARN routine.
-        xyz_dir (str): The path to a directory containing .xyz data; the neural
-            network is used to predict the corresponding XANES spectra.        
-        conv_inp_f (dict, optional): The variable definitions for arctan 
+        xyz_dir (str): The path to a directory containing .xyz (X) data; the 
+            neural network is used to predict the corresponding XANES spectra.   
+        conv_vars (dict, optional): The variable definitions for arctan 
             convolution as a dictionary, i.e. the variables necessary to set up
             an ArctanConvoluter object (see xanesnet/convolute.py).
     """
@@ -324,9 +302,9 @@ def predict(mdl_dir: str,
         xas2csv(e, y, csv_f)
     print()
 
-    if 'conv_vars' in kwargs:
+    if conv_vars:
         
-        convoluter = ArctanConvoluter(e, **kwargs['conv_vars'])
+        convoluter = ArctanConvoluter(e, **conv_vars)
 
         print('>> spooling conv. predictions to the xas2csv function...')
         for id_, y in tqdm.tqdm(zip(ids, y_predict)):
