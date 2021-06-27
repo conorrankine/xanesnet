@@ -23,6 +23,7 @@ import numpy as np
 import tensorflow as tf
 
 from ase import Atoms
+from pathlib import Path
 from sklearn.model_selection import RepeatedKFold
 from sklearn.preprocessing import StandardScaler
 from tensorflow.keras.models import Sequential
@@ -193,36 +194,39 @@ def xas2csv(e: np.ndarray, mu: np.ndarray, xas_f: str):
 
     return 0
 
-def metrics2csv(out_dir: str, tf_dir: str):
+def metrics2csv(out_dir: Path, tf_dir: Path):
     # writes summary statistics derived from K-fold data in the TensorFlow
     # directory (tf_dir) in .csv format to files (out_dir/epochs.csv + 
     # out_dir/best.csv)
 
-    metrics = np.array([np.genfromtxt(d / 'log' / 'log.csv', 
-                        delimiter = ',')[:,1:] for d in tf_dir.iterdir()])
+    logs = [np.genfromtxt(d / 'log' / 'log.csv', delimiter = ',',
+                          skip_header = 1)[:,1:] for d in tf_dir.iterdir()]
     
-    n_logs, n_epochs, _ = metrics.shape
-    kfs = np.linspace(1, n_logs, n_logs, dtype = 'uint16')
+    if not all([len(logs[0]) == len(log) for log in logs]):
+        len_max = max([len(log) for log in logs])
+        logs = [np.pad(log, ((0, len_max - len(log)), (0, 0)), mode = 'edge')
+                for log in logs]
+        
+    logs = np.array(logs, dtype = 'float32') 
+
+    log_avg = np.average(logs, axis = 0)
+    log_std = np.std(logs, axis = 0)
+    best = np.min(logs, axis = 1)
+    
+    n_kfs, n_epochs, _ = logs.shape
+    
     epochs = np.linspace(1, n_epochs, n_epochs, dtype = 'uint16')
-
-    metrics_avg = np.average(metrics, axis = 0)
-    metrics_std = np.std(metrics, axis = 0)
-    best = np.min(metrics, axis = 1)
-
-    fmt = ['%.0f'] + ['%.6f'] * 4
-    header = 'epochs,train,valid,train_std,valid_std'
-
+    fmt = ['%.0f'] + ['%.16f'] * 4
+    header = 'epochs,loss,val_loss,loss_stdev,val_loss_stdev'
     with open(out_dir / 'epochs.csv', 'w') as f:
-        np.savetxt(f, np.c_[epochs, metrics_avg, metrics_std], 
+        np.savetxt(f, np.c_[epochs, log_avg, log_std], 
                    delimiter = ',', fmt = fmt, header = header)
 
-    fmt = ['%.0f'] + ['%.6f'] * 2
-    header = 'kfold,train_best,valid_best'
-
+    kfs = np.linspace(1, n_kfs, n_kfs, dtype = 'uint16')
+    fmt = ['%.0f'] + ['%.16f'] * 2
+    header = 'kfold,loss_best,val_loss_best'
     with open(out_dir / 'best.csv', 'w') as f:
         np.savetxt(f, np.c_[kfs, best], 
                    delimiter = ',', fmt = fmt, header = header)
-
-    print()
 
     return 0
