@@ -143,15 +143,15 @@ def get_kf_idxs(ids: list, n_splits: int,
 def compile_mlp(
     inp_dim: int, 
     out_dim: int, 
-    n_hl: int, 
-    hl_ini_dim: int, 
-    hl_shrink: float, 
-    activation: str, 
-    loss: str,
-    lr: float,
-    dropout: float,
-    kernel_init: str,
-    bias_init: str
+    n_hl: int = 2, 
+    hl_ini_dim: int = 256, 
+    hl_shrink: float = 0.5, 
+    activation: str = 'relu', 
+    loss: str = 'mse',
+    lr: float = 0.001,
+    dropout: float = 0.2,
+    kernel_init: str = 'he_uniform',
+    bias_init: str = 'zeros'
 ) -> Sequential:
     # returns a tensorflow.keras.models.Sequential neural network set up 
     # according to specification via input arguments
