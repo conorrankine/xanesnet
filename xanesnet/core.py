@@ -29,24 +29,18 @@ import time as time
 from pathlib import Path
 from sklearn.model_selection import RepeatedKFold
 from sklearn.preprocessing import StandardScaler
-from tensorflow.keras.callbacks import CSVLogger
-from tensorflow.keras.callbacks import TensorBoard
-from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.keras.callbacks import ModelCheckpoint
-from tensorflow.keras.callbacks import ReduceLROnPlateau
 
 from xanesnet.core_utils import check_gpu_support
 from xanesnet.core_utils import load_data_ids
+from xanesnet.core_utils import create_descriptor
 from xanesnet.core_utils import load_csv_f
-from xanesnet.core_utils import xyz2x
-from xanesnet.core_utils import xas2y
+from xanesnet.core_utils import xyz2ase
+from xanesnet.core_utils import txt2xas
 from xanesnet.core_utils import get_kf_idxs
 from xanesnet.core_utils import compile_mlp
+from xanesnet.core_utils import compile_callbacks
 from xanesnet.core_utils import xas2csv
 from xanesnet.core_utils import metrics2csv
-from xanesnet.descriptors import CoulombMatrix
-from xanesnet.descriptors import RadDistCurve
-from xanesnet.descriptors import WACSF
 from xanesnet.convolute import ArctanConvoluter
 
 ###############################################################################
@@ -128,35 +122,26 @@ def learn(
     if max_samples:
         ids = ids[:max_samples]
 
-    if features == 'cmat':
-        featuriser = CoulombMatrix(**feature_vars)
-    elif features == 'rdc':
-        featuriser = RadDistCurve(**feature_vars)
-    elif features == 'wacsf':
-        if 'g2' in feature_vars:
-            feature_vars.update({'g2_vars': load_csv_f(feature_vars['g2'])})
-        if 'g4' in feature_vars:
-            feature_vars.update({'g4_vars': load_csv_f(feature_vars['g4'])})
-        featuriser = WACSF(**feature_vars)
-    else:
-        raise ValueError((f'\'{features}\' is not a recognised kind of '
-                          'featurisation; check docs & examples for options'))
+    descriptor = create_descriptor(features, feature_vars)
 
-    with open(pkl_dir / 'featuriser.pkl', 'wb') as f:
-        pickle.dump(featuriser, f)
+    with open(pkl_dir / 'descriptor.pkl', 'wb') as f:
+        pickle.dump(descriptor, f)
 
     x_spooler = (x_path / (id_ + '.xyz') for id_ in ids)
-    print('>> spooling files to the xyz2x function...')
-    x = [xyz2x(f, featuriser) for f in tqdm.tqdm(x_spooler)]
+    print('>> loading and transforming X data...')
+    x = [descriptor.describe(xyz2ase(f)) for f in tqdm.tqdm(x_spooler)]
     print()
 
     y_spooler = (y_path / (id_ + '.txt') for id_ in ids)
-    print('>> spooling files to the xas2y function...')
-    e, y = zip(*[xas2y(f) for f in tqdm.tqdm(y_spooler)])
+    print('>> loading and transforming Y data...')
+    e, y = zip(*[txt2xas(f) for f in tqdm.tqdm(y_spooler)])
     print()
 
     with open(pkl_dir / 'e_scale.pkl', 'wb') as f:
         pickle.dump(e[0], f)
+
+    x = np.array(x, dtype = 'float32')
+    y = np.array(y, dtype = 'float32')
 
     kf_idxs = get_kf_idxs(ids, n_kf_splits, n_kf_cycles)
 
@@ -165,9 +150,12 @@ def learn(
         print(f'>> cycle no. {(kf_n + 1):.0f}/{(len(kf_idxs)):.0f}\n')
 
         train_idxs, test_idxs = kf_idxs_pair
-
-        x_train, y_train = zip(*[(x[i], y[i]) for i in train_idxs])
-        x_test, y_test = zip(*[(x[i], y[i]) for i in test_idxs])
+        
+        x_train = x[train_idxs]
+        y_train = y[train_idxs]
+        
+        x_test = x[test_idxs]
+        y_test = y[test_idxs]
 
         scaler = StandardScaler()
         
@@ -190,41 +178,26 @@ def learn(
             **hyperparams
         )
 
-        callbacks = []
+        callback_csvlogger = {
+            "filename": str(log_dir / 'log.csv')
+        }
         
-        callbacks.append(
-            CSVLogger(
-                str(log_dir / 'log.csv')
-            )
+        callback_modelcheckpoint = {
+            "filepath": str(chk_dir / 'chk'),
+            "save_weights_only": True,
+            "save_best_only": True
+        }
+        
+        callbacks = compile_callbacks(
+            callback_csvlogger = callback_csvlogger,
+            callback_modelcheckpoint = callback_modelcheckpoint,
+            callback_earlystopping = callback_earlystopping,
+            callback_reducelronplateau = callback_reducelronplateau,
         )
         
-        callbacks.append(
-            ModelCheckpoint(
-                str(chk_dir / 'chk'),
-                save_weights_only = True,
-                save_best_only = True
-            )
-        )
-        
-        if callback_reducelronplateau:
-            callbacks.append(
-                ReduceLROnPlateau(
-                    **callback_reducelronplateau
-                )
-            )
-            
-        if callback_earlystopping:
-            callbacks.append(
-                EarlyStopping(
-                    **callback_earlystopping
-                )
-            )
-
         net.fit(
-            *(np.array(x_train, dtype = 'float64'), 
-              np.array(y_train, dtype = 'float64')),
-            validation_data = (np.array(x_test, dtype = 'float64'), 
-                               np.array(y_test, dtype = 'float64')),
+            *(x_train, y_train),
+            validation_data = (x_test, y_test),
             epochs = epochs, 
             callbacks = callbacks,
             shuffle = True, 
@@ -276,13 +249,15 @@ def predict(
 
     ids = load_data_ids(x_dir)
 
-    with open(mdl_dir / 'pkl' / 'featuriser.pkl', 'rb') as f:
-        featuriser = pickle.load(f)
+    with open(mdl_dir / 'pkl' / 'descriptor.pkl', 'rb') as f:
+        descriptor = pickle.load(f)
 
     x_spooler = (x_dir / (id_ + '.xyz') for id_ in ids)
-    print('>> spooling files to the xyz2x function...')
-    x = [xyz2x(f, featuriser) for f in tqdm.tqdm(x_spooler)]
+    print('>> loading and transforming X data...')
+    x = [descriptor.describe(xyz2ase(f)) for f in tqdm.tqdm(x_spooler)]
     print()
+   
+    x = np.array(x, dtype = 'float32')
    
     with open(mdl_dir / 'pkl' / 'scaler.pkl', 'rb') as f:
         scaler = pickle.load(f)
@@ -291,15 +266,15 @@ def predict(
 
     net = tf.keras.models.load_model(mdl_dir / 'net.hdf5')
 
-    y_predict = net.predict(np.array(x, dtype = 'float64'))
+    y = net.predict(x)
 
     with open(mdl_dir / 'pkl' / 'e_scale.pkl', 'rb') as f:
         e = pickle.load(f)
 
     print('>> spooling predictions to the xas2csv function...')
-    for id_, y in tqdm.tqdm(zip(ids, y_predict)):
+    for id_, y_ in tqdm.tqdm(zip(ids, y)):
         csv_f = predict_dir / f'{id_}.csv'
-        xas2csv(e, y, csv_f)
+        xas2csv(e, y_, csv_f)
     print()
 
     if conv_vars:
@@ -307,9 +282,9 @@ def predict(
         convoluter = ArctanConvoluter(e, **conv_vars)
 
         print('>> spooling conv. predictions to the xas2csv function...')
-        for id_, y in tqdm.tqdm(zip(ids, y_predict)):
+        for id_, y_ in tqdm.tqdm(zip(ids, y)):
             csv_f = predict_dir / f'{id_}_conv.csv'
-            xas2csv(e, convoluter.convolute(y), csv_f)
+            xas2csv(e, convoluter.convolute(y_), csv_f)
         print()
         
     return 0

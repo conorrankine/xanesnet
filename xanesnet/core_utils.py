@@ -31,6 +31,14 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import Dropout
 from tensorflow.keras.layers import Activation
+from tensorflow.keras.callbacks import CSVLogger
+from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.callbacks import ModelCheckpoint
+from tensorflow.keras.callbacks import ReduceLROnPlateau
+
+from xanesnet.descriptors import CoulombMatrix
+from xanesnet.descriptors import RadDistCurve
+from xanesnet.descriptors import WACSF
 
 ###############################################################################
 ################################## FUNCTIONS ##################################
@@ -53,7 +61,7 @@ def check_gpu_support():
 
     return 0
 
-def load_data_ids(*dirs: str) -> list:
+def load_data_ids(*dirs: Path) -> list:
     # returns a list of extensionless file names (used as data IDs) *if* the
     # list is common to all directories (*dirs; data sources) and not empty, 
     # otherwise raises a runtime error; prints out a message and the length of 
@@ -80,10 +88,31 @@ def load_data_ids(*dirs: str) -> list:
 
     return ids
 
-def load_csv_f(csv_inp_f: str) -> list:
+def create_descriptor(descriptor_type: str, descriptor_vars: dict):
+    # returns a xanesnet.descriptors object
+    # TODO: consider refactoring this to use 'match' (Python >3.10); this is 
+    # essentially a C/C++ 'switch' statement
+    
+    if descriptor_type == 'cmat':
+        return CoulombMatrix(**descriptor_vars)
+    elif descriptor_type == 'rdc':
+        return RadDistCurve(**descriptor_vars)
+    elif descriptor_type == 'wacsf':
+        if 'g2' in descriptor_vars:
+            descriptor_vars.update({'g2_vars': load_csv_f(descriptor_vars['g2'])})
+        if 'g4' in descriptor_vars:
+            descriptor_vars.update({'g4_vars': load_csv_f(descriptor_vars['g4'])})
+        return WACSF(**descriptor_vars)
+    else:
+        err_str = f'\'{descriptor_type}\' is not an allowed descriptor type'
+        raise ValueError(err_str)
+
+def load_csv_f(csv_inp_f: Path) -> list:
     # returns a list of (columnwise) lists from a .csv file (csv_inp_f); used
     # to load G2/G4 parameter files for setting up xanesnet.descriptors.WACSF
     # objects
+    # TODO: scrap this function; this functionality should be built in 
+    # xanesnet.descriptors.WACSF with np.genfromtxt
 
     with open(csv_inp_f, 'r') as f:
         ls = [l.strip().split(',') for l in f if not l.startswith('#')]
@@ -91,9 +120,8 @@ def load_csv_f(csv_inp_f: str) -> list:
 
     return csv_cols
 
-def xyz2x(xyz_f: str, descriptor) -> np.ndarray:
-    # returns the np.ndarray feature vector for an .xyz file; used to load X
-    # data from a data source directory
+def xyz2ase(xyz_f: Path) -> Atoms:
+    # loads an .xyz (X) data file as an ase.atoms object
 
     with open(xyz_f) as f:
         xyz_f_l = [l.strip().split() for l in f]
@@ -102,33 +130,33 @@ def xyz2x(xyz_f: str, descriptor) -> np.ndarray:
     xyz = np.array([l[1:] for l in xyz_f_l[2:]], dtype = 'float32')
     
     try:
-        ase = Atoms(z, xyz)
+        return Atoms(z, xyz)
     except KeyError:
-        ase = Atoms(z.astype('uint8'), xyz)
+        return Atoms(z.astype('uint8'), xyz)
 
-    features = descriptor.describe(ase)
+def txt2xas(txt_f: Path) -> (np.ndarray, np.ndarray):
+    # loads a .txt FDMNES output (Y) data file as an np.ndarray object
 
-    return features
+    with open(txt_f) as f:
+        txt_f_l = [l.strip().split() for l in f]
 
-def xas2y(xas_f: str) -> (np.ndarray, np.ndarray):
-    # returns the np.ndarray XANES spectral components (e = energy scale,
-    # mu = spectral intensity) for a .txt FDMNES output file; used to load Y
-    # data from a data source directory
-
-    with open(xas_f) as f:
-        xas_f_l = [l.strip().split() for l in f]
-
-    e = np.array([l[0] for l in xas_f_l[2:]], dtype = 'float32')
-    mu = np.array([l[1] for l in xas_f_l[2:]], dtype = 'float32')
+    e = np.array([l[0] for l in txt_f_l[2:]], dtype = 'float32')
+    mu = np.array([l[1] for l in txt_f_l[2:]], dtype = 'float32')
 
     mu /= mu[-1]
 
     return e, mu
 
-def get_kf_idxs(ids: list, n_splits: int, 
-                n_repeats: int) -> (np.ndarray, np.ndarray):
-    # returns np.ndarray training and testing/validation K-fold splits;
-    # a wrapper for scipy.model_selection.RepeatedKFold
+def get_kf_idxs(ids: list, n_splits: int, n_repeats: int) -> list:
+    # returns two np.ndarrays containing training and testing/validation K-fold 
+    # split indices; a wrapper for scipy.model_selection.RepeatedKFold (see
+    # scikit-learn.org/stable/modules/generated/sklearn.model_selection \\
+    # .KFold.html) that, if it fails to produce a split (e.g. if n_splits = 0), 
+    # returns indices running over the whole list of IDs (ids) for both the
+    # training and testing/validation K-fold splits in a format consistent with
+    # the expected output from scipy.model_selection.RepeatedKFold
+    # TODO: consider subclassing scipy.model_selection.RepeatedKFold to build 
+    # in this functionality there; is it out of place here?
     
     kf_spooler = RepeatedKFold(n_splits = n_splits, n_repeats = n_repeats)
  
@@ -151,10 +179,15 @@ def compile_mlp(
     lr: float = 0.001,
     dropout: float = 0.2,
     kernel_init: str = 'he_uniform',
-    bias_init: str = 'zeros'
+    bias_init: str = 'zeros',
+    **kwargs
 ) -> Sequential:
-    # returns a tensorflow.keras.models.Sequential neural network set up 
-    # according to specification via input arguments
+    # returns a tensorflow.keras.models.Sequential neural network with the deep
+    # multilayer perceptron (MLP) model; the MLP has an input layer of 
+    # [inp_dim] neurons and an output layer of [out_dim] neurons; there are 
+    # [n_hl] hidden layers between the input and output layers, the first
+    # hidden layer has [hl_ini_dim] neurons, and each successive hidden layer 
+    # is reduced in size by a factor of [hl_shrink]
 
     net = Sequential()
     
@@ -182,9 +215,35 @@ def compile_mlp(
 
     return net
 
-def xas2csv(e: np.ndarray, mu: np.ndarray, xas_f: str):
-    # writes a np.ndarray XANES spectrum (e = energy scale; mu = spectral 
-    # intensity) in .csv format to a file (xas_f)
+def compile_callbacks(**kwargs) -> list:
+    # returns a list of tensorflow.keras.callbacks assembled from the **kwargs
+    # passed to the function; expects dictionaries containing key/value pairs
+    # to pass through to the appropriate tensorflow.keras.callbacks
+    
+    callbacks = []
+    
+    if 'callback_csvlogger' in kwargs:
+        callbacks.append(
+            CSVLogger(**kwargs['callback_csvlogger'])
+        )
+    if 'callback_modelcheckpoint' in kwargs:
+        callbacks.append(
+            ModelCheckpoint(**kwargs['callback_modelcheckpoint'])
+        )
+    if 'callback_earlystopping' in kwargs:
+        callbacks.append(
+            EarlyStopping(**kwargs['callback_earlystopping'])
+        )
+    if 'callback_reducelronplateau' in kwargs:
+        callbacks.append(
+            ReduceLROnPlateau(**kwargs['callback_reducelronplateau'])
+        )
+        
+    return callbacks
+
+def xas2csv(e: np.ndarray, mu: np.ndarray, xas_f: Path):
+    # writes a XANES spectrum (e = energy scale; mu = spectral intensity) 
+    # in .csv format to a file (xas_f)
 
     fmt = ['%.2f'] + ['%.8f']
     header = 'e,mu'
