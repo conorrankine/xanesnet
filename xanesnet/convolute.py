@@ -21,238 +21,215 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import numpy as np
 
+from abc import ABC
+from abc import abstractmethod
+from abc import abstractproperty
+
 ###############################################################################
-################################## CONVOLUTE ##################################
+################################### CLASSES ###################################
 ###############################################################################
 
-class ArctanConvoluter():
+class Convoluter(ABC):
     """
-    A class for convoluting (broadening) theoretical + predicted XANES spectra
-    to account for phenomenological effects like core-hole lifetime broadening,
-    instrumental resolution, and many-body effects (e.g. inelastic losses). 
-    This is achieved approximately using an empirical model similar to the 
-    Seah-Dench formalism, originally described in the following publication:
+    An abstract class for convoluting XANES spectra to account for 
+    phenomenological effects like core-hole lifetime broadening, instrumental 
+    resolution, and many-body effects (e.g. inelastic losses); convolution is 
+    carried out with a Lorentzian kernel over an auxilliary energy grid 
+    (e_min -> e_max : de) defined relative to an absorption edge (e_edge).
     
-    > NPL Rep. Chem., 1978, 82. 
+    A subclass has to implement a method (_g) for calculating the width
+    of the Lorentzian kernel, e.g. an energy-dependent arctangent convolution 
+    model, the Seah-Dench convolution model, etc.
     
-    The implementation here is inspired by the energy-dependent arctan
-    convolution model implemented in the FDMNES program package 
-    (<http://fdmnes.neel.cnrs.fr/>) and the equations are outlined in the 
-    following publications:
-    
-    > J. Phys. Chem. A, 2020, 124, 4263-4270 (10.1021/acs.jpca.0c03723)
-    
-    > Molecules, 2020, 25, 2715 (10.3390/molecules25112715)
+    The implementation here is similiar to the implementation in the FDMNES 
+    program package (<http://fdmnes.neel.cnrs.fr/>); see p.43-48 in the FDMNES
+    user manual (Section C: Convolution) for additional details.
     """
 
-    def __init__(self, e: np.ndarray, e_edge: float, e_l: float, e_c: float, 
-                 e_f: float, g_hole: float, g_max: float, p_dim = 150):
+    def __init__(
+        self,
+        e_edge: float, 
+        e_min: float = -30.0,
+        e_max: float = 75.0,
+        de: float = 0.2
+    ):
         """
         Args:
-            e (np.ndarray): The energy grid over which the arctan convolution
-                            function is defined and operates. The energy grid 
-                            is expected to have equally-spaced gridpoints 
-                            (e.g. a np.linspace)
-            e_edge (float): The absorption edge energy (in eV).
-            e_l (float): The width of the arctan convolution function (in eV).
-            e_c (float): The center of the arctan convolution function (in eV).
-            e_f (float): The Fermi energy (in eV).
-            g_hole (float): The core state width (in eV).
-            g_max (float): The final state width (in eV).
-            p_dim (int, optional): The number of additional energy grid points
-                                   to pad both ends of the energy grid with 
-                                   before arctan convolution. Defaults to 150.
+            e_edge (float): The absorption edge energy (in eV); available @
+                <http://skuld.bmsc.washington.edu/scatter/AS_periodic.html>
+            e_min (float): The minimum energy (in eV, relative to the 
+                absorption edge) for the auxilliary energy grid that the 
+                convoluter operates over. 
+                Defaults to -30.0 eV.
+            e_max (float): The maximum energy (in eV, relative to the 
+                absorption edge) for the auxilliary energy grid that the
+                convoluter operates over. 
+                Defaults to +75.0 eV.
+            de (float): The step size (in eV) for the auxilliary energy grid 
+                that the convoluter operates over. 
+                Defaults to 0.2 eV.
         """
  
-        self.e = e
-        self.e_edge = e_edge
-        self.e_l = e_l
-        self.e_c = e_c
-        self.e_f = e_f
-        self.g_hole = g_hole
-        self.g_max = g_max
-        self.p_dim = p_dim
+        self.e_edge = float(e_edge)
+ 
+        self.e_min = float(e_min)
+        self.e_max = float(e_max)
+        self.de = float(de)
+        
+        ne_aux = int(np.absolute(self.e_max - self.e_min) / self.de) + 1
+        self.e_aux = np.linspace(self.e_min, self.e_max, ne_aux)
 
-        e_pad_min = np.min(self.e) - (np.diff(self.e)[0] * self.p_dim)
-        e_pad_max = np.max(self.e) + (np.diff(self.e)[0] * self.p_dim)
-        self.e_pad = np.pad(self.e, self.p_dim, mode = 'linear_ramp',
-                        end_values = (e_pad_min, e_pad_max))
+        lorentz = lambda x, x0, g: g * (0.5 / ((x - x0)**2 + (0.5 * g)**2))
 
-        self.g = self._arctan_g()
-        self.h = self._lorentz_h()
+        self.conv_kernel = lorentz(
+            *np.meshgrid(self.e_aux, self.e_aux), self._g()
+        )
 
-    def convolute(self, mu: np.ndarray) -> np.ndarray:
+    def convolute(self, e: np.ndarray, m: np.ndarray) -> np.ndarray:
         """
-        Convolutes a XANES spectrum with an energy-dependent arctan function
-        to account for phenomenological effects like core-hole lifetime 
-        broadening, instrumental resolution, and many-body effects (e.g. 
-        inelastic losses).
+        This function convolutes XANES spectra to account for phenomenological
+        effects like core-hole lifetime broadening, instrumental resolution, 
+        and many-body effects (e.g. inelastic losses); convolution is 
+        carried out with a Lorentzian kernel over an auxilliary energy grid 
+        (e_min -> e_max : de) defined relative to an absorption edge (e_edge).
+       
+        The implementation here is similiar to the implementation in the FDMNES
+        program package (<http://fdmnes.neel.cnrs.fr/>); see p.43-48 in the
+        FDMNES user manual (Section C: Convolution) for additional details.
 
         Args:
-            mu (np.ndarray): An unconvoluted XANES spectrum. The XANES spectrum
-                             is expected to be defined over the energy grid
-                             (ArctanConvoluter.e), i.e. every gridpoint in the
-                             energy grid pairs up with every point in mu, and
-                             len(ArctanConvoluter.e) == len(mu).
+            e (np.ndarray): Energy values (in eV).
+            m (np.ndarray): Intensity values (in arb. units).
 
         Returns:
-            np.ndarray: An arctan-convoluted XANES spectrum. The XANES spectrum
-                        is defined over the energy grid (ArctanConvoluter.e).
+            (np.ndarray): Intensity values (in arb. units) post-convolution 
+                with a Lorentzian kernel.
         """
 
-        if not isinstance(mu, np.ndarray):
-            raise TypeError(f'mu has to be a np.ndarray; got {mu}')
-        elif not len(mu) == len(self.e):
-            raise ValueError((f'dimension of mu ({len(mu)}) does not match ',
-                              f'dimension of the energy grid ({len(self.e)})'))
-
-        # pad mu at both ends of the energy grid
-        mu_pad = np.pad(mu, self.p_dim, mode = 'edge')
-        # squash mu below the absorption edge to eliminate pre-edge peaks
-        mu_pad_squash = np.where(self.e_pad < self.e_edge, 0.0, mu_pad)
-        # convolute mu with the energy-dependent arctan convolution function
-        mu_conv = np.sum(self.h.T * mu_pad_squash, axis = 1)
-        # scale mu
-        mu_conv = (np.sum(mu_pad_squash) * mu_conv) / np.sum(mu_conv)
-        # unpad mu at both ends of the energy grid
-        mu_conv = mu_conv[self.p_dim:-self.p_dim]
-
-        return mu_conv
-                      
-    def _arctan_g(self):
-
-        e_rel = self.e_pad - self.e_edge
-        gq = (e_rel - self.e_f) / self.e_c
+        # rescale energy values (e) rel. to the absorption edge (self.e_edge)
+        e -= self.e_edge
         
-        g = self.g_hole + (
-            self.g_max * (
-                0.5 + (
-                    (1.0 / np.pi) * (
-                        np.arctan((np.pi / 3.0) * (self.g_max / self.e_l) 
-                                  * (gq - (1.0 / np.square(gq)))
+        # if the rescaled energy values (e) do not map onto the auxilliary
+        # energy grid that the arctangent convoluter operates over, the 
+        # intensity values (m) will have to be projected
+        try:
+            projection = True if not np.allclose(e, self.e_aux) else False
+        except ValueError:
+            projection = True
+
+        if projection:
+            # project intensity values (m) onto auxilliary energy grid
+            m = np.interp(self.e_aux, e, m)
+
+        # flatten intensity values (m) below the Fermi energy; remove the
+        # cross-sectional contributions from the occupied states
+        m = np.where(self.e_aux < self.e_f, 0.0, m)
+
+        # apply convolution kernel
+        m = np.sum(self.conv_kernel * m, axis = 1)
+        
+        if projection:
+            # project intensity values (m) off auxilliary energy grid
+            m = np.interp(e, self.e_aux, m)
+
+        return m
+    
+    @abstractmethod
+    def _g(self) -> np.ndarray:
+        # returns the width(s) for the Lorentzian kernel; can return a
+        # singular value for convolution with a Lorentzian kernel of fixed
+        # width over the auxilliary energy grid (self.e), or a np.ndarray for 
+        # convolution with a Lorentzian kernel of energy-dependent width 
+        # over the auxilliary energy grid (self.e); in the latter case, it is
+        # expected that len(self.e_aux) == len(g)
+   
+        return g
+    
+class ArctanConvoluter(Convoluter):
+    """
+    A class for convoluting XANES spectra with an energy-dependent arctangent
+    convolution model to account for phenomenological effects like core-hole 
+    lifetime broadening, instrumental resolution, and many-body effects (e.g.
+    inelastic losses); convolution is carried out with a Lorentzian kernel 
+    over an auxilliary energy grid (e_min -> e_max : de) defined relative to 
+    an absorption edge (e_edge).
+    
+    The width of the Lorentzian kernel is determined from precalculation of an
+    energy-dependent arctangent function.
+    
+    The implementation here is similiar to the implementation in the FDMNES 
+    program package (<http://fdmnes.neel.cnrs.fr/>); see p.43-48 in the FDMNES
+    user manual (Section C: Convolution) for additional details.
+    """
+    
+    def __init__(
+        self, 
+        e_edge: float,
+        e_min: float = -30.0,
+        e_max: float = 75.0,
+        de: float = 0.2,
+        e_l: float = 30.0, 
+        e_c: float = 30.0,
+        e_f: float = -5.0,
+        g_hole: float = 5.0,
+        g_max: float = 15.0
+    ):
+        """
+        Args:
+            e_edge (float): The absorption edge energy (in eV); available @
+                <http://skuld.bmsc.washington.edu/scatter/AS_periodic.html>
+            e_min (float): The minimum energy (in eV, relative to the 
+                absorption edge) for the auxilliary energy grid that the 
+                arctangent convoluter operates over. 
+                Defaults to -30.0 eV.
+            e_max (float): The maximum energy (in eV, relative to the 
+                absorption edge) for the auxilliary energy grid that the
+                arctangent convoluter operates over. 
+                Defaults to +75.0 eV.
+            de (float): The step size (in eV) for the auxilliary energy grid 
+                that the arctangent convoluter operates over. 
+                Defaults to 0.2 eV.
+            e_l (float): The width of the arctan convolution function (in eV).
+                Defaults to 30.0 eV.
+            e_c (float): The center of the arctan convolution function (in eV).
+                Defaults to 30.0 eV.
+            e_f (float): The Fermi energy (in eV, relative to the absorption 
+                edge); cross-sectional contributions from the occupied states
+                below the Fermi energy are removed pre-convolution.
+                Defaults to 5.0 eV.
+            g_hole (float): The core state width (in eV).
+                Defaults to 5.0 eV.
+            g_max (float): The final state width (in eV).
+                Defaults to 30.0 eV.
+        """
+ 
+        self.e_l = float(e_l)
+        self.e_c = float(e_c)
+        self.e_f = float(e_f)
+        self.g_hole = float(g_hole)
+        self.g_max = float(g_max)
+        
+        super().__init__(
+            float(e_edge), 
+            float(e_min), 
+            float(e_max), 
+            float(de)
+        )
+        
+    def _g(self) -> np.ndarray:
+        # returns an energy-dependent arctangent function; see p.43-48 in the
+        # FDMNES user manual (Section C: Convolution) for additional details 
+   
+        with np.errstate(divide = 'ignore'):
+            g = (self.g_hole 
+                + (self.g_max 
+                * 0.5 + ((1.0 / np.pi) 
+                        * (np.arctan((np.pi / 3.0) * (self.g_max / self.e_l) 
+                            * (((self.e_aux - self.e_f) / self.e_c) 
+                            - (1.0 / ((self.e_aux - self.e_f) / self.e_c)**2)))
                         )
                     )
                 )
             )
-        )
-
+        
         return g
-
-    def _lorentz_h(self):
-
-        de = self.e_pad[:,np.newaxis] - self.e_pad[np.newaxis,:]
-
-        h = (0.5 * self.g) / (np.square(de) + np.square(0.5 * self.g))
-        h = np.where(de != 0.0, h, 1.0)
-
-        return h
-
-    @property
-    def e(self):
-        
-        return self.__e
-
-    @e.setter
-    def e(self, e):
-
-        if not isinstance(e, np.ndarray):
-            raise TypeError(f'e has to be a np.ndarray; got {e}')
-        else:
-            self.__e = e
-
-    @property
-    def e_edge(self):
-        
-        return self.__e_edge
-
-    @e_edge.setter
-    def e_edge(self, e_edge):
-
-        if not isinstance(e_edge, (int, float)):
-            raise TypeError(f'e_edge has to be an integer/float; got {e_edge}')
-        elif not e_edge > 0:
-            raise ValueError(f'e_edge has to be > 0; got {e_edge}')
-        else:
-            self.__e_edge = float(e_edge)
-
-    @property
-    def e_l(self):
-        
-        return self.__e_l
-
-    @e_l.setter
-    def e_l(self, e_l):
-
-        if not isinstance(e_l, (int, float)):
-            raise TypeError(f'e_l has to be an integer/float; got {e_l}')
-        elif not e_l > 0:
-            raise ValueError(f'e_l has to be > 0; got {e_l}')
-        else:
-            self.__e_l = float(e_l)
-
-    @property
-    def e_c(self):
-        
-        return self.__e_c
-
-    @e_c.setter
-    def e_c(self, e_c):
-
-        if not isinstance(e_c, (int, float)):
-            raise TypeError(f'e_c has to be an integer/float; got {e_c}')
-        elif not e_c > 0:
-            raise ValueError(f'e_c has to be > 0; got {e_c}')
-        else:
-            self.__e_c = float(e_c)
-
-    @property
-    def e_f(self):
-        
-        return self.__e_f
-
-    @e_f.setter
-    def e_f(self, e_f):
-
-        if not isinstance(e_f, (int, float)):
-            raise TypeError(f'e_f has to be an integer/float; got {e_f}')
-        else:
-            self.__e_f = float(e_f)
-
-    @property
-    def g_hole(self):
-        
-        return self.__g_hole
-
-    @g_hole.setter
-    def g_hole(self, g_hole):
-
-        if not isinstance(g_hole, (int, float)):
-            raise TypeError(f'g_hole has to be an integer/float; got {g_hole}')
-        else:
-            self.__g_hole = float(g_hole)
-
-    @property
-    def g_max(self):
-        
-        return self.__g_max
-
-    @g_max.setter
-    def g_max(self, g_max):
-
-        if not isinstance(g_max, (int, float)):
-            raise ValueError(f'g_max has to be an integer/float; got {g_max}')
-        else:
-            self.__g_max = float(g_max)
-
-    @property
-    def p_dim(self):
-        
-        return self.__p_dim
-
-    @p_dim.setter
-    def p_dim(self, p_dim):
-
-        if not isinstance(p_dim, int):
-            raise ValueError(f'p_dim has to be an integer; got {p_dim}')
-        else:
-            self.__p_dim = p_dim
