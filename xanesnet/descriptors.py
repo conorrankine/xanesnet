@@ -82,7 +82,7 @@ class VectorDescriptor(ABC):
         
         pass 
 
-class RadDistCurve(VectorDescriptor):
+class RDC(VectorDescriptor):
     """
     A class for transforming a molecular system into a radial (or 'pair')
     distribution curve (RDCs). The RDC is - simplistically - like a histogram
@@ -187,8 +187,8 @@ class WACSF(VectorDescriptor):
         self,
         r_min: float = 0.0,
         r_max: float = 6.0,
-        g2_vars = None,
-        g4_vars = None,
+        g2_vars: list = None,
+        g4_vars: list = None,
         with_weighting = True
     ):
         """
