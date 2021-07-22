@@ -31,24 +31,17 @@ from abc import abstractproperty
 
 class Convoluter(ABC):
     """
-    An abstract class for convoluting XANES spectra to account for 
-    phenomenological effects like core-hole lifetime broadening, instrumental 
-    resolution, and many-body effects (e.g. inelastic losses); convolution is 
-    carried out with a Lorentzian kernel over an auxilliary energy grid 
+    An abstract base class for convoluting XANES spectra to account for
+    phenomenological effects like core-hole lifetime broadening, instrumental
+    resolution, and many-body effects (e.g. inelastic losses); convolution is
+    carried out with a Lorentzian kernel over an auxilliary energy grid
     (e_min -> e_max : de) defined relative to an absorption edge (e_edge).
-    
-    A subclass has to implement a method (_g) for calculating the width
-    of the Lorentzian kernel, e.g. an energy-dependent arctangent convolution 
-    model, the Seah-Dench convolution model, etc.
-    
-    The implementation here is similiar to the implementation in the FDMNES 
-    program package (<http://fdmnes.neel.cnrs.fr/>); see p.43-48 in the FDMNES
-    user manual (Section C: Convolution) for additional details.
     """
 
     def __init__(
         self,
-        e_edge: float, 
+        e_edge: float,
+        e_fermi: float = -5.0, 
         e_min: float = -30.0,
         e_max: float = 75.0,
         de: float = 0.2
@@ -57,21 +50,25 @@ class Convoluter(ABC):
         Args:
             e_edge (float): The absorption edge energy (in eV); available @
                 <http://skuld.bmsc.washington.edu/scatter/AS_periodic.html>
-            e_min (float): The minimum energy (in eV, relative to the 
-                absorption edge) for the auxilliary energy grid that the 
-                convoluter operates over. 
-                Defaults to -30.0 eV.
-            e_max (float): The maximum energy (in eV, relative to the 
+            e_fermi (float): The Fermi energy (in eV, relative to the
+                absorption edge); cross-sectional contributions from the
+                occupied states below the Fermi energy are removed.
+                Defaults to 5.0 eV.
+            e_min (float): The minimum energy (in eV, relative to the
                 absorption edge) for the auxilliary energy grid that the
-                convoluter operates over. 
+                convoluter operates over.
+                Defaults to -30.0 eV.
+            e_max (float): The maximum energy (in eV, relative to the
+                absorption edge) for the auxilliary energy grid that the
+                convoluter operates over.
                 Defaults to +75.0 eV.
-            de (float): The step size (in eV) for the auxilliary energy grid 
-                that the convoluter operates over. 
+            de (float): The step size (in eV) for the auxilliary energy grid
+                that the convoluter operates over.
                 Defaults to 0.2 eV.
         """
  
         self.e_edge = float(e_edge)
- 
+        self.e_fermi = float(e_fermi)
         self.e_min = float(e_min)
         self.e_max = float(e_max)
         self.de = float(de)
@@ -88,29 +85,24 @@ class Convoluter(ABC):
     def convolute(self, e: np.ndarray, m: np.ndarray) -> np.ndarray:
         """
         This function convolutes XANES spectra to account for phenomenological
-        effects like core-hole lifetime broadening, instrumental resolution, 
-        and many-body effects (e.g. inelastic losses); convolution is 
-        carried out with a Lorentzian kernel over an auxilliary energy grid 
+        effects like core-hole lifetime broadening, instrumental resolution,
+        and many-body effects (e.g. inelastic losses); convolution is
+        carried out with a Lorentzian kernel over an auxilliary energy grid
         (e_min -> e_max : de) defined relative to an absorption edge (e_edge).
-       
-        The implementation here is similiar to the implementation in the FDMNES
-        program package (<http://fdmnes.neel.cnrs.fr/>); see p.43-48 in the
-        FDMNES user manual (Section C: Convolution) for additional details.
 
         Args:
             e (np.ndarray): Energy values (in eV).
             m (np.ndarray): Intensity values (in arb. units).
 
         Returns:
-            (np.ndarray): Intensity values (in arb. units) post-convolution 
-                with a Lorentzian kernel.
+            (np.ndarray): Intensity values (in arb. units) after convolution.
         """
 
         # rescale energy values (e) rel. to the absorption edge (self.e_edge)
         e -= self.e_edge
         
         # if the rescaled energy values (e) do not map onto the auxilliary
-        # energy grid that the arctangent convoluter operates over, the 
+        # energy grid that the arctangent convoluter operates over, the
         # intensity values (m) will have to be projected
         try:
             projection = True if not np.allclose(e, self.e_aux) else False
@@ -123,7 +115,7 @@ class Convoluter(ABC):
 
         # flatten intensity values (m) below the Fermi energy; remove the
         # cross-sectional contributions from the occupied states
-        m = np.where(self.e_aux < self.e_f, 0.0, m)
+        m = np.where(self.e_aux < self.e_fermi, 0.0, m)
 
         # apply convolution kernel
         m = np.sum(self.conv_kernel * m, axis = 1)
@@ -136,41 +128,38 @@ class Convoluter(ABC):
     
     @abstractmethod
     def _g(self) -> np.ndarray:
-        # returns the width(s) for the Lorentzian kernel; can return a
-        # singular value for convolution with a Lorentzian kernel of fixed
-        # width over the auxilliary energy grid (self.e), or a np.ndarray for 
-        # convolution with a Lorentzian kernel of energy-dependent width 
-        # over the auxilliary energy grid (self.e); in the latter case, it is
-        # expected that len(self.e_aux) == len(g)
+        # returns the width(s) for the Lorentzian kernel; can return either a
+        # i) singular value for convolution with a Lorentzian kernel of fixed
+        # width, or ii) np.ndarray for convolution with a Lorentzian kernel of
+        # energy-dependent width over the auxilliary energy grid (self.e)
    
-        return g
+        pass
     
 class ArctanConvoluter(Convoluter):
     """
     A class for convoluting XANES spectra with an energy-dependent arctangent
-    convolution model to account for phenomenological effects like core-hole 
+    convolution model to account for phenomenological effects like core-hole
     lifetime broadening, instrumental resolution, and many-body effects (e.g.
-    inelastic losses); convolution is carried out with a Lorentzian kernel 
-    over an auxilliary energy grid (e_min -> e_max : de) defined relative to 
+    inelastic losses); convolution is carried out with a Lorentzian kernel
+    over an auxilliary energy grid (e_min -> e_max : de) defined relative to
     an absorption edge (e_edge).
     
-    The width of the Lorentzian kernel is determined from precalculation of an
-    energy-dependent arctangent function.
-    
-    The implementation here is similiar to the implementation in the FDMNES 
-    program package (<http://fdmnes.neel.cnrs.fr/>); see p.43-48 in the FDMNES
-    user manual (Section C: Convolution) for additional details.
+    The width of the Lorentzian kernel at each point on the auxilliary energy
+    grid is determined with a parameterised energy-dependent arctangent
+    function. The implementation here is similiar to the implementation in the
+    FDMNES program package (<http://fdmnes.neel.cnrs.fr/>); see p.43-48 in the
+    FDMNES user manual (Section C: Convolution) for additional details.
     """
     
     def __init__(
         self, 
         e_edge: float,
+        e_fermi: float = -5.0,
         e_min: float = -30.0,
         e_max: float = 75.0,
         de: float = 0.2,
         e_l: float = 30.0, 
         e_c: float = 30.0,
-        e_f: float = -5.0,
         g_hole: float = 5.0,
         g_max: float = 15.0
     ):
@@ -178,25 +167,25 @@ class ArctanConvoluter(Convoluter):
         Args:
             e_edge (float): The absorption edge energy (in eV); available @
                 <http://skuld.bmsc.washington.edu/scatter/AS_periodic.html>
-            e_min (float): The minimum energy (in eV, relative to the 
-                absorption edge) for the auxilliary energy grid that the 
-                arctangent convoluter operates over. 
-                Defaults to -30.0 eV.
-            e_max (float): The maximum energy (in eV, relative to the 
+            e_fermi (float): The Fermi energy (in eV, relative to the
+                absorption edge); cross-sectional contributions from the
+                occupied states below the Fermi energy are removed.
+                Defaults to 5.0 eV.
+            e_min (float): The minimum energy (in eV, relative to the
                 absorption edge) for the auxilliary energy grid that the
-                arctangent convoluter operates over. 
+                arctangent convoluter operates over.
+                Defaults to -30.0 eV.
+            e_max (float): The maximum energy (in eV, relative to the
+                absorption edge) for the auxilliary energy grid that the
+                arctangent convoluter operates over.
                 Defaults to +75.0 eV.
-            de (float): The step size (in eV) for the auxilliary energy grid 
-                that the arctangent convoluter operates over. 
+            de (float): The step size (in eV) for the auxilliary energy grid
+                that the arctangent convoluter operates over.
                 Defaults to 0.2 eV.
             e_l (float): The width of the arctan convolution function (in eV).
                 Defaults to 30.0 eV.
             e_c (float): The center of the arctan convolution function (in eV).
                 Defaults to 30.0 eV.
-            e_f (float): The Fermi energy (in eV, relative to the absorption 
-                edge); cross-sectional contributions from the occupied states
-                below the Fermi energy are removed pre-convolution.
-                Defaults to 5.0 eV.
             g_hole (float): The core state width (in eV).
                 Defaults to 5.0 eV.
             g_max (float): The final state width (in eV).
@@ -205,12 +194,12 @@ class ArctanConvoluter(Convoluter):
  
         self.e_l = float(e_l)
         self.e_c = float(e_c)
-        self.e_f = float(e_f)
         self.g_hole = float(g_hole)
         self.g_max = float(g_max)
         
         super().__init__(
-            float(e_edge), 
+            float(e_edge),
+            float(e_fermi), 
             float(e_min), 
             float(e_max), 
             float(de)
@@ -218,15 +207,15 @@ class ArctanConvoluter(Convoluter):
         
     def _g(self) -> np.ndarray:
         # returns an energy-dependent arctangent function; see p.43-48 in the
-        # FDMNES user manual (Section C: Convolution) for additional details 
+        # FDMNES user manual (Section C: Convolution) for additional details
    
         with np.errstate(divide = 'ignore'):
             g = (self.g_hole 
                 + (self.g_max 
                 * 0.5 + ((1.0 / np.pi) 
                         * (np.arctan((np.pi / 3.0) * (self.g_max / self.e_l) 
-                            * (((self.e_aux - self.e_f) / self.e_c) 
-                            - (1.0 / ((self.e_aux - self.e_f) / self.e_c)**2)))
+                            * (((self.e_aux - self.e_fermi) / self.e_c) 
+                            - (1.0 / ((self.e_aux - self.e_fermi) / self.e_c)**2)))
                         )
                     )
                 )

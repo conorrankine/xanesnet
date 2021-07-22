@@ -32,8 +32,8 @@ from abc import abstractproperty
 
 class VectorDescriptor(ABC):
     """
-    An abstract base class for transforming a molecular system into a 
-    fingerprint feature vector, or 'descriptor', that encodes the local 
+    An abstract base class for transforming a molecular system into a
+    fingerprint feature vector, or 'descriptor', that encodes the local
     environment around an absorption site as a vector.
     """
     
@@ -47,7 +47,7 @@ class VectorDescriptor(ABC):
             r_min (float): The minimum radial cutoff distance (in A) around
                 the absorption site; should be 0.0.
                 Defaults to 0.0.
-            r_max (float): The maximum radial cutoff distance (in A) around 
+            r_max (float): The maximum radial cutoff distance (in A) around
                 the absorption site.
                 Defaults to 6.0.
         """
@@ -69,8 +69,8 @@ class VectorDescriptor(ABC):
     ) -> np.ndarray:
         """
         Transforms a molecular system into a fingerprint feature vector, or
-        'descriptor', that encodes the local environment around an absorption 
-        site as a vector; the absorption site has to be the first atom defined 
+        'descriptor', that encodes the local environment around an absorption
+        site as a vector; the absorption site has to be the first atom defined
         for the molecular system.
 
         Args:
@@ -84,10 +84,10 @@ class VectorDescriptor(ABC):
 
 class RadDistCurve(VectorDescriptor):
     """
-    A class for transforming a molecular system into a radial (or 'pair') 
+    A class for transforming a molecular system into a radial (or 'pair')
     distribution curve (RDCs). The RDC is - simplistically - like a histogram
-    of pairwise internuclear distances discretised over an auxilliary 
-    real-space grid and smoothed out using Gaussians; pairs are made between 
+    of pairwise internuclear distances discretised over an auxilliary
+    real-space grid and smoothed out using Gaussians; pairs are made between
     the absorption site and all atoms within a defined radial cutoff.
     """
 
@@ -103,13 +103,13 @@ class RadDistCurve(VectorDescriptor):
             r_min (float): The minimum radial cutoff distance (in A) around
                 the absorption site; should be 0.0.
                 Defaults to 0.0.
-            r_max (float): The maximum radial cutoff distance (in A) around 
+            r_max (float): The maximum radial cutoff distance (in A) around
                 the absorption site.
                 Defaults to 6.0.
             dr (float): The step size (in A) for the auxilliary real-space grid
                 that the RDC is discretised over.
                 Defaults to 0.01.
-            alpha (float): A smoothing parameter used in a Gaussian exponent 
+            alpha (float): A smoothing parameter used in a Gaussian exponent
                 that defines the effective spatial resolution of the RDC.
                 Defaults to 10.0.
         """
@@ -135,7 +135,7 @@ class RadDistCurve(VectorDescriptor):
     ) -> np.ndarray:
         """
         Transforms a molecular system into an RDC descriptor that encodes
-        the local environment around an absorption site; the absorption site 
+        the local environment around an absorption site; the absorption site
         has to be the first atom defined for the molecular system.
 
         Args:
@@ -171,9 +171,9 @@ class RadDistCurve(VectorDescriptor):
 
 class WACSF(VectorDescriptor):
     """
-    A class for transforming a molecular system into a weighted atom-centered 
-    symmetry function (WACSF) descriptor. WACSFs encode the local geometry 
-    around an absorption site using parameterised radial and angular 
+    A class for transforming a molecular system into a weighted atom-centered
+    symmetry function (WACSF) descriptor. WACSFs encode the local geometry
+    around an absorption site using parameterised radial and angular
     components. For reference, check out the following publication:
     
     > J. Chem. Phys., 2018, 148, 241709 (10.1063/1.5019667)
@@ -196,7 +196,7 @@ class WACSF(VectorDescriptor):
             r_min (float): The minimum radial cutoff distance (in A) around
                 the absorption site; should be 0.0.
                 Defaults to 0.0.
-            r_max (float): The maximum radial cutoff distance (in A) around 
+            r_max (float): The maximum radial cutoff distance (in A) around
                 the absorption site.
                 Defaults to 6.0.
             g2_vars (list, optional): A list of eta (h) and mu (m) pairs,
