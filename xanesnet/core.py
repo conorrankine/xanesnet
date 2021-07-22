@@ -32,8 +32,6 @@ from sklearn.preprocessing import StandardScaler
 
 from xanesnet.core_utils import check_gpu_support
 from xanesnet.core_utils import load_data_ids
-from xanesnet.core_utils import create_descriptor
-from xanesnet.core_utils import load_csv_f
 from xanesnet.core_utils import xyz2ase
 from xanesnet.core_utils import txt2xas
 from xanesnet.core_utils import get_kf_idxs
@@ -42,6 +40,8 @@ from xanesnet.core_utils import compile_callbacks
 from xanesnet.core_utils import xas2csv
 from xanesnet.core_utils import metrics2csv
 from xanesnet.convolute import ArctanConvoluter
+from xanesnet.descriptors import RDC
+from xanesnet.descriptors import WACSF
 
 ###############################################################################
 ################################## FUNCTIONS ##################################
@@ -50,8 +50,8 @@ from xanesnet.convolute import ArctanConvoluter
 def learn(
     x: str,
     y: str,
-    features: str,
-    feature_vars: dict,
+    descriptor_type: str,
+    descriptor_params: dict,
     n_kf_splits: int = 0,
     n_kf_cycles: int = 1,
     max_samples: int = 0,
@@ -79,10 +79,13 @@ def learn(
             .xyz files. 
         y (str): The path to the XANES spectral (Y) data; expects a directory
             containing .txt FDMNES output files.
-        features (str): The type of featurisation to use, e.g. Coulomb matrices
-            ('cmat'), radial distribution curves ('rdc'), etc.
-        feature_vars (dict): The variable definitions required for the type of 
-            featurisation as a dictionary of keywords.
+        descriptor_type (str): The type of descriptor to use; the descriptor 
+            transforms molecular systems into fingerprint feature vectors that 
+            encodes the local environment around absorption sites.
+            See xanesnet.descriptors for additional information.
+        descriptor_params (dict): A dictionary of keyword arguments passed to
+            the descriptor on initialisation.
+            See xanesnet.descriptors for additional information.
         n_kf_splits (int, optional): The number of K-fold splits to use; if 0,
             K-fold CV is not used. Defaults to 0.
         n_kf_cycles (int, optional): The number of K-fold cycles to run; if 1,
@@ -122,18 +125,24 @@ def learn(
     if max_samples:
         ids = ids[:max_samples]
 
-    descriptor = create_descriptor(features, feature_vars)
+    if descriptor_type.lower() == 'rdc':
+        descriptor = RDC(**descriptor_params)
+    elif descriptor_type.lower() == 'wacsf':
+        descriptor = WACSF(**descriptor_params)
+    else:
+        raise ValueError(f'descriptor type not recognised; ',
+            'got {descriptor_type}')
 
     with open(pkl_dir / 'descriptor.pkl', 'wb') as f:
         pickle.dump(descriptor, f)
 
     x_spooler = (x_path / (id_ + '.xyz') for id_ in ids)
-    print('>> loading and transforming X data...')
-    x = [descriptor.describe(xyz2ase(f)) for f in tqdm.tqdm(x_spooler)]
+    print('>> loading X data...')
+    x = [descriptor.transform(xyz2ase(f)) for f in tqdm.tqdm(x_spooler)]
     print()
 
     y_spooler = (y_path / (id_ + '.txt') for id_ in ids)
-    print('>> loading and transforming Y data...')
+    print('>> loading Y data...')
     e, y = zip(*[txt2xas(f) for f in tqdm.tqdm(y_spooler)])
     print()
 
@@ -213,27 +222,26 @@ def learn(
     return 0
 
 def predict(
-    mdl_dir: str, 
+    mdl_dir: str,
     xyz_dir: str,
-    conv_vars: dict = {}, 
-    **kwargs
+    conv_vars: dict = {},
 ):
     """
     PREDICT. The neural network is restored from the model.[?] directory created
-    by launching the LEARN routine. The .xyz data for prediction are loaded, 
+    by launching the LEARN routine. The .xyz data for prediction are loaded,
     featurised, and scaled consistently with the run that created the model.[?]
     directory. The neural network is used to predict the corresponding XANES
-    spectra. Optionally, the predicted XANES spectra can be convoluted with an 
+    spectra. Optionally, the predicted XANES spectra can be convoluted with an
     energy-dependent arctan function (see xanesnet/convolute.py). The runtime
-    routine creates a predict.[?] directory in the current workspace; this 
+    routine creates a predict.[?] directory in the current workspace; this
     directory contains the predicted XANES spectra.
 
     Args:
         mdl_dir (str): The path to a model.[?] directory created by launching
             the LEARN routine.
-        xyz_dir (str): The path to a directory containing .xyz (X) data; the 
-            neural network is used to predict the corresponding XANES spectra.   
-        conv_vars (dict, optional): The variable definitions for arctan 
+        xyz_dir (str): The path to a directory containing .xyz (X) data; the
+            neural network is used to predict the corresponding XANES spectra.
+        conv_vars (dict, optional): The variable definitions for arctan
             convolution as a dictionary, i.e. the variables necessary to set up
             an ArctanConvoluter object (see xanesnet/convolute.py).
     """
@@ -254,7 +262,7 @@ def predict(
 
     x_spooler = (x_dir / (id_ + '.xyz') for id_ in ids)
     print('>> loading and transforming X data...')
-    x = [descriptor.describe(xyz2ase(f)) for f in tqdm.tqdm(x_spooler)]
+    x = [descriptor.transform(xyz2ase(f)) for f in tqdm.tqdm(x_spooler)]
     print()
    
     x = np.array(x, dtype = 'float32')
@@ -279,12 +287,12 @@ def predict(
 
     if conv_vars:
         
-        convoluter = ArctanConvoluter(e, **conv_vars)
+        convoluter = ArctanConvoluter(**conv_vars)
 
         print('>> spooling conv. predictions to the xas2csv function...')
         for id_, y_ in tqdm.tqdm(zip(ids, y)):
             csv_f = predict_dir / f'{id_}_conv.csv'
-            xas2csv(e, convoluter.convolute(y_), csv_f)
+            xas2csv(e, convoluter.convolute(e, y_), csv_f)
         print()
         
     return 0

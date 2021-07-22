@@ -36,10 +36,6 @@ from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.callbacks import ReduceLROnPlateau
 
-from xanesnet.descriptors import CoulombMatrix
-from xanesnet.descriptors import RadDistCurve
-from xanesnet.descriptors import WACSF
-
 ###############################################################################
 ################################## FUNCTIONS ##################################
 ###############################################################################
@@ -87,38 +83,6 @@ def load_data_ids(*dirs: Path) -> list:
     print()
 
     return ids
-
-def create_descriptor(descriptor_type: str, descriptor_vars: dict):
-    # returns a xanesnet.descriptors object
-    # TODO: consider refactoring this to use 'match' (Python >3.10); this is 
-    # essentially a C/C++ 'switch' statement
-    
-    if descriptor_type == 'cmat':
-        return CoulombMatrix(**descriptor_vars)
-    elif descriptor_type == 'rdc':
-        return RadDistCurve(**descriptor_vars)
-    elif descriptor_type == 'wacsf':
-        if 'g2' in descriptor_vars:
-            descriptor_vars.update({'g2_vars': load_csv_f(descriptor_vars['g2'])})
-        if 'g4' in descriptor_vars:
-            descriptor_vars.update({'g4_vars': load_csv_f(descriptor_vars['g4'])})
-        return WACSF(**descriptor_vars)
-    else:
-        err_str = f'\'{descriptor_type}\' is not an allowed descriptor type'
-        raise ValueError(err_str)
-
-def load_csv_f(csv_inp_f: Path) -> list:
-    # returns a list of (columnwise) lists from a .csv file (csv_inp_f); used
-    # to load G2/G4 parameter files for setting up xanesnet.descriptors.WACSF
-    # objects
-    # TODO: scrap this function; this functionality should be built in 
-    # xanesnet.descriptors.WACSF with np.genfromtxt
-
-    with open(csv_inp_f, 'r') as f:
-        ls = [l.strip().split(',') for l in f if not l.startswith('#')]
-    csv_cols = [list(col) for col in zip(*ls)]
-
-    return csv_cols
 
 def xyz2ase(xyz_f: Path) -> Atoms:
     # loads an .xyz (X) data file as an ase.atoms object
