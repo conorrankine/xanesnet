@@ -98,33 +98,37 @@ class Convoluter(ABC):
             (np.ndarray): Intensity values (in arb. units) after convolution.
         """
 
-        # rescale energy values (e) rel. to the absorption edge (self.e_edge)
-        e -= self.e_edge
+        # copy energy (e) and intensity values (m) for temporary transformation
+        e_ = e.copy()
+        m_ = m.copy()
+
+        # rescale energy values (e_) rel. to the absorption edge (self.e_edge)
+        e_ -= self.e_edge
         
-        # if the rescaled energy values (e) do not map onto the auxilliary
+        # if the rescaled energy values (e_) do not map onto the auxilliary
         # energy grid that the arctangent convoluter operates over, the
-        # intensity values (m) will have to be projected
+        # intensity values (m_) will have to be projected
         try:
-            projection = True if not np.allclose(e, self.e_aux) else False
+            projection = True if not np.allclose(e_, self.e_aux) else False
         except ValueError:
             projection = True
 
         if projection:
-            # project intensity values (m) onto auxilliary energy grid
-            m = np.interp(self.e_aux, e, m)
+            # project intensity values (m_) onto auxilliary energy grid
+            m_ = np.interp(self.e_aux, e_, m_)
 
-        # flatten intensity values (m) below the Fermi energy; remove the
+        # flatten intensity values (m_) below the Fermi energy; remove the
         # cross-sectional contributions from the occupied states
-        m = np.where(self.e_aux < self.e_fermi, 0.0, m)
+        m_ = np.where(self.e_aux < self.e_fermi, 0.0, m_)
 
         # apply convolution kernel
-        m = np.sum(self.conv_kernel * m, axis = 1)
+        m_ = np.sum(self.conv_kernel * m_, axis = 1)
         
         if projection:
-            # project intensity values (m) off auxilliary energy grid
-            m = np.interp(e, self.e_aux, m)
+            # project intensity values (m_) off auxilliary energy grid
+            m_ = np.interp(e_, self.e_aux, m_)
 
-        return m
+        return m_
     
     @abstractmethod
     def _g(self) -> np.ndarray:
