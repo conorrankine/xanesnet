@@ -33,7 +33,6 @@ from tensorflow.keras.layers import Dropout
 from tensorflow.keras.layers import Activation
 from tensorflow.keras.callbacks import CSVLogger
 from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.callbacks import ReduceLROnPlateau
 
 ###############################################################################
@@ -111,28 +110,26 @@ def txt2xas(txt_f: Path) -> (np.ndarray, np.ndarray):
 
     return e, mu
 
-def get_kf_idxs(ids: list, n_splits: int, n_repeats: int) -> list:
-    # returns two np.ndarrays containing training and testing/validation K-fold 
-    # split indices; a wrapper for scipy.model_selection.RepeatedKFold (see
-    # scikit-learn.org/stable/modules/generated/sklearn.model_selection \\
-    # .KFold.html) that, if it fails to produce a split (e.g. if n_splits = 0), 
-    # returns indices running over the whole list of IDs (ids) for both the
-    # training and testing/validation K-fold splits in a format consistent with
-    # the expected output from scipy.model_selection.RepeatedKFold
-    # TODO: consider subclassing scipy.model_selection.RepeatedKFold to build 
-    # in this functionality there; is it out of place here?
+def set_callbacks(**kwargs) -> list:
+    # returns a list of tensorflow.keras.callbacks assembled from the **kwargs
+    # passed to the function; expects dictionaries containing key/value pairs
+    # to pass through to the appropriate tensorflow.keras.callbacks
     
-    kf_spooler = RepeatedKFold(n_splits = n_splits, n_repeats = n_repeats)
- 
-    try:
-        kf_idxs = list(kf_spooler.split(ids))
-    except ValueError:
-        kf_idxs = [tuple([np.linspace(0, len(ids) - 1, len(ids) - 1, 
-                          dtype = 'uint32')] * 2) for _ in range(n_repeats)]
+    callbacks_ = {
+        'csvlogger': CSVLogger,
+        'earlystopping': EarlyStopping,
+        'reducelronplateau': ReduceLROnPlateau
+    }
 
-    return kf_idxs
+    callbacks = []
+    
+    for callback_label, callback_ in callbacks_.items():
+        if callback_label in kwargs:
+            callbacks.append(callback_(**kwargs[callback_label]))
 
-def compile_mlp(
+    return callbacks
+
+def build_mlp(
     inp_dim: int, 
     out_dim: int, 
     n_hl: int = 2, 
@@ -179,32 +176,6 @@ def compile_mlp(
 
     return net
 
-def compile_callbacks(**kwargs) -> list:
-    # returns a list of tensorflow.keras.callbacks assembled from the **kwargs
-    # passed to the function; expects dictionaries containing key/value pairs
-    # to pass through to the appropriate tensorflow.keras.callbacks
-    
-    callbacks = []
-    
-    if 'callback_csvlogger' in kwargs:
-        callbacks.append(
-            CSVLogger(**kwargs['callback_csvlogger'])
-        )
-    if 'callback_modelcheckpoint' in kwargs:
-        callbacks.append(
-            ModelCheckpoint(**kwargs['callback_modelcheckpoint'])
-        )
-    if 'callback_earlystopping' in kwargs:
-        callbacks.append(
-            EarlyStopping(**kwargs['callback_earlystopping'])
-        )
-    if 'callback_reducelronplateau' in kwargs:
-        callbacks.append(
-            ReduceLROnPlateau(**kwargs['callback_reducelronplateau'])
-        )
-        
-    return callbacks
-
 def xas2csv(e: np.ndarray, mu: np.ndarray, xas_f: Path):
     # writes a XANES spectrum (e = energy scale; mu = spectral intensity) 
     # in .csv format to a file (xas_f)
@@ -215,42 +186,5 @@ def xas2csv(e: np.ndarray, mu: np.ndarray, xas_f: Path):
     with open(xas_f, 'w') as f:
         np.savetxt(f, np.c_[e, mu / mu[-1]], delimiter = ',',
                    fmt = fmt, header = header)
-
-    return 0
-
-def metrics2csv(out_dir: Path, tf_dir: Path):
-    # writes summary statistics derived from K-fold data in the TensorFlow
-    # directory (tf_dir) in .csv format to files (out_dir/epochs.csv + 
-    # out_dir/best.csv)
-
-    logs = [np.genfromtxt(d / 'log' / 'log.csv', delimiter = ',',
-                          skip_header = 1)[:,1:] for d in tf_dir.iterdir()]
-    
-    if not all([len(logs[0]) == len(log) for log in logs]):
-        len_max = max([len(log) for log in logs])
-        logs = [np.pad(log, ((0, len_max - len(log)), (0, 0)), mode = 'edge')
-                for log in logs]
-        
-    logs = np.array(logs, dtype = 'float32') 
-
-    log_avg = np.average(logs, axis = 0)
-    log_std = np.std(logs, axis = 0)
-    best = np.min(logs, axis = 1)
-    
-    n_kfs, n_epochs, _ = logs.shape
-    
-    epochs = np.linspace(1, n_epochs, n_epochs, dtype = 'uint16')
-    fmt = ['%.0f'] + ['%.16f'] * 4
-    header = 'epochs,loss,val_loss,loss_stdev,val_loss_stdev'
-    with open(out_dir / 'epochs.csv', 'w') as f:
-        np.savetxt(f, np.c_[epochs, log_avg, log_std], 
-                   delimiter = ',', fmt = fmt, header = header)
-
-    kfs = np.linspace(1, n_kfs, n_kfs, dtype = 'uint16')
-    fmt = ['%.0f'] + ['%.16f'] * 2
-    header = 'kfold,loss_best,val_loss_best'
-    with open(out_dir / 'best.csv', 'w') as f:
-        np.savetxt(f, np.c_[kfs, best], 
-                   delimiter = ',', fmt = fmt, header = header)
 
     return 0

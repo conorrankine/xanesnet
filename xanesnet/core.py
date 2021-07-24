@@ -20,25 +20,27 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 ###############################################################################
 
 import numpy as np
-import tensorflow as tf
 import pickle as pickle
-import random as random
 import tqdm as tqdm
 import time as time
 
 from pathlib import Path
-from sklearn.model_selection import RepeatedKFold
+from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import KFold
+from sklearn.model_selection import RepeatedKFold
+from sklearn.model_selection import cross_validate
+from tensorflow.keras.wrappers.scikit_learn import KerasRegressor
+from tensorflow.keras.models import save_model
+from tensorflow.keras.models import load_model
 
 from xanesnet.core_utils import check_gpu_support
 from xanesnet.core_utils import load_data_ids
 from xanesnet.core_utils import xyz2ase
 from xanesnet.core_utils import txt2xas
-from xanesnet.core_utils import get_kf_idxs
-from xanesnet.core_utils import compile_mlp
-from xanesnet.core_utils import compile_callbacks
 from xanesnet.core_utils import xas2csv
-from xanesnet.core_utils import metrics2csv
+from xanesnet.core_utils import set_callbacks
+from xanesnet.core_utils import build_mlp
 from xanesnet.convolute import ArctanConvoluter
 from xanesnet.descriptors import RDC
 from xanesnet.descriptors import WACSF
@@ -48,82 +50,65 @@ from xanesnet.descriptors import WACSF
 ###############################################################################
 
 def learn(
-    x: str,
-    y: str,
+    x_path: str,
+    y_path: str,
     descriptor_type: str,
-    descriptor_params: dict,
-    n_kf_splits: int = 0,
-    n_kf_cycles: int = 1,
-    max_samples: int = 0,
+    descriptor_params: dict = {},
+    kfold_params: dict = {},
     hyperparams: dict = {},
     epochs: int = 100,
-    callback_reducelronplateau: dict = {},
-    callback_earlystopping: dict = {},
+    callbacks: dict = {},
     **kwargs
 ):
     """
-    LEARN. The .xyz (X) and XANES spectral (Y) data are loaded, featurised, 
-    shuffled, scaled, and split into training and testing/validation k-folds; 
+    LEARN. The .xyz (X) and XANES spectral (Y) data are loaded and transformed;
     a neural network is set up and fit to these data to find an Y <- X mapping.
-    The runtime routine creates a model.[?] directory in the current workspace;
-    this directory is organised hierarchically: 
+    K-fold cross-validation is possible if {kfold_params} are provided.
+    This function creates a model.[?] directory in the current workspace: 
     
     > model.[?]
-      ~ model.hdf5 (an optimised TensorFlow/Keras model in .hdf5 format)
-      > out (contains useful summary statistics in .csv format)
-      > pkl (contains retained serialised objects in .pkl format)
-      > tf (contains retained TensorFlow/Keras intermediate files)
+      > objects
+        > tf (contains the optimised Keras neural network(s), <model.keras>)
+        > np (contains serialised .npy arrays)
+        > sk (contains serialised .pickle preprocessors and pipelines)
 
     Args:
-        x (str): The path to the .xyz (X) data; expects a directory containing
-            .xyz files. 
-        y (str): The path to the XANES spectral (Y) data; expects a directory
-            containing .txt FDMNES output files.
-        descriptor_type (str): The type of descriptor to use; the descriptor 
-            transforms molecular systems into fingerprint feature vectors that 
-            encodes the local environment around absorption sites.
+        x_path (str): The path to the .xyz (X) data; expects a directory
+            containing .xyz files.
+        y_path (str): The path to the XANES spectral (Y) data; expects a
+            directory containing .txt FDMNES output files.
+        descriptor_type (str): The type of descriptor to use; the descriptor
+            transforms molecular systems into fingerprint feature vectors
+            that encodes the local environment around absorption sites.
             See xanesnet.descriptors for additional information.
-        descriptor_params (dict): A dictionary of keyword arguments passed to
-            the descriptor on initialisation.
-            See xanesnet.descriptors for additional information.
-        n_kf_splits (int, optional): The number of K-fold splits to use; if 0,
-            K-fold CV is not used. Defaults to 0.
-        n_kf_cycles (int, optional): The number of K-fold cycles to run; if 1,
-            and n_kf_splits == 0, K-fold CV is not used. Defaults to 1.
-        max_samples (int, optional): The maximum number of (X|Y) data samples 
-            to use; if 0, all available data samples are used. Defaults to 0.
-        hyperparams (dict, optional): A dictionary of hyperparameter 
+        descriptor_params (dict, optional): A dictionary of keyword
+            arguments passed to the descriptor on initialisation.
+            Defaults to {}.
+        kfold_params (dict, optional): A dictionary of keyword arguments
+            passed to a scikit-learn K-fold splitter (KFold or RepeatedKFold).
+            If an empty dictionary is passed, no K-fold splitting is carried
+            out, and all available data are exposed to the neural network.
+            Defaults to {}.
+        hyperparams (dict, optional): A dictionary of hyperparameter
             definitions used to configure a Sequential Keras neural network.
             Defaults to {}.
-        epochs (int, optional): The maximum number of epochs/cycles over which
-            the neural network is fit. Defaults to 100.
-        callback_reducelronplateau (dict, optional): A dictionary of argument /
-            value pairs to pass through to the ReduceLROnPlateau Keras callback
-            (see keras.io/api/callbacks/reduce_lr_on_plateau/). Defaults to {}.
-        callback_earlystopping (dict, optional): A dictionary of argument /
-            value pairs to pass through to the EarlyStopping Keras callback
-            (see keras.io/api/callbacks/early_stopping/). Defaults to {}.
+        epochs (int, optional): The maximum number of epochs/cycles.
+            Defaults to 100.
+        callbacks (dict, optional): A dictionary of keyword arguments passed
+            to set up Keras neural network callbacks; each argument is
+            expected to be dictionary of arguments for the defined callback,
+            e.g. "earlystopping": {"patience": 10, "verbose": 1}
+            Defaults to {}.
     """
 
-    mdl_dir = Path(f'./model.{int(time.time())}')
-    out_dir = mdl_dir / 'out'
-    pkl_dir = mdl_dir / 'pkl'
-    tf_dir = mdl_dir / 'tf'
+    model_dir = Path(f'./model.{int(time.time())}')
+    obj_dir = model_dir / 'objects'
+    np_dir = obj_dir / 'np'
+    tf_dir = obj_dir / 'tf'
+    sk_dir = obj_dir / 'sk'
 
-    for d in [mdl_dir, out_dir, pkl_dir, tf_dir]:
+    for d in (model_dir, obj_dir, np_dir, tf_dir, sk_dir):
         d.mkdir()
-
-    check_gpu_support()
-
-    x_path = Path(x)
-    y_path = Path(y)
-
-    ids = load_data_ids(x_path, y_path)
-
-    random.shuffle(ids)
-
-    if max_samples:
-        ids = ids[:max_samples]
 
     if descriptor_type.lower() == 'rdc':
         descriptor = RDC(**descriptor_params)
@@ -133,8 +118,13 @@ def learn(
         raise ValueError(f'descriptor type not recognised; ',
             'got {descriptor_type}')
 
-    with open(pkl_dir / 'descriptor.pkl', 'wb') as f:
-        pickle.dump(descriptor, f)
+    with open(sk_dir / 'descriptor.pickle', 'wb') as f:
+        pickle.dump(descriptor, f)    
+
+    x_path = Path(x_path)
+    y_path = Path(y_path)
+
+    ids = load_data_ids(x_path, y_path)
 
     x_spooler = (x_path / (id_ + '.xyz') for id_ in ids)
     print('>> loading X data...')
@@ -146,153 +136,160 @@ def learn(
     e, y = zip(*[txt2xas(f) for f in tqdm.tqdm(y_spooler)])
     print()
 
-    with open(pkl_dir / 'e_scale.pkl', 'wb') as f:
-        pickle.dump(e[0], f)
+    e = np.array(e, dtype = 'float32')
+    if np.allclose(e[0], e):
+        e = e[0]
+    else:
+        raise ValueError('Y data are not defined over a common energy ',
+            'window; check .txt FDMNES output files for consistency')
 
     x = np.array(x, dtype = 'float32')
     y = np.array(y, dtype = 'float32')
+ 
+    for array_name, array in {'x': x, 'y': y, 'e': e}.items():
+        with open(np_dir / f'{array_name}.npy', 'wb') as f:
+            np.save(f, array)
 
-    kf_idxs = get_kf_idxs(ids, n_kf_splits, n_kf_cycles)
+    net = KerasRegressor(
+        build_fn = build_mlp, 
+        inp_dim = x[0].size, 
+        out_dim = y[0].size, 
+        **hyperparams,
+        callbacks = set_callbacks(**callbacks),
+        epochs = epochs,
+        verbose = 2
+    )
 
-    for kf_n, kf_idxs_pair in enumerate(kf_idxs):
+    pipeline = Pipeline([
+        ('standardisation', StandardScaler()),
+        ('net', net)
+    ])
 
-        print(f'>> cycle no. {(kf_n + 1):.0f}/{(len(kf_idxs)):.0f}\n')
+    if kfold_params:
 
-        train_idxs, test_idxs = kf_idxs_pair
-        
-        x_train = x[train_idxs]
-        y_train = y[train_idxs]
-        
-        x_test = x[test_idxs]
-        y_test = y[test_idxs]
+        kfold_spooler = (RepeatedKFold(**kfold_params) 
+            if 'n_repeats' in kfold_params else KFold(**kfold_params))
 
-        scaler = StandardScaler()
-        
-        x_train = scaler.fit_transform(x_train)
-        x_test = scaler.transform(x_test)
+        check_gpu_support()
 
-        with open(pkl_dir / 'scaler.pkl', 'wb') as f:
-            pickle.dump(scaler, f)   
-
-        kf_dir = tf_dir / f'k{kf_n}'
-        log_dir = kf_dir / 'log'
-        chk_dir = kf_dir / 'chk'
-
-        for d in [kf_dir, log_dir, chk_dir]:
-            d.mkdir()
-
-        net = compile_mlp(
-            inp_dim = x_train[0].size, 
-            out_dim = y_train[0].size, 
-            **hyperparams
+        print('>> fitting neural net...\n')
+        kfold_output = cross_validate(
+            pipeline, 
+            x, 
+            y, 
+            cv = kfold_spooler, 
+            return_train_score = True,
+            return_estimator = True, 
+            verbose = 0
         )
 
-        callback_csvlogger = {
-            "filename": str(log_dir / 'log.csv')
-        }
-        
-        callback_modelcheckpoint = {
-            "filepath": str(chk_dir / 'chk'),
-            "save_weights_only": True,
-            "save_best_only": True
-        }
-        
-        callbacks = compile_callbacks(
-            callback_csvlogger = callback_csvlogger,
-            callback_modelcheckpoint = callback_modelcheckpoint,
-            callback_earlystopping = callback_earlystopping,
-            callback_reducelronplateau = callback_reducelronplateau,
-        )
-        
-        net.fit(
-            *(x_train, y_train),
-            validation_data = (x_test, y_test),
-            epochs = epochs, 
-            callbacks = callbacks,
-            shuffle = True, 
-            verbose = 2
-        )
-    
-        net.load_weights(str(chk_dir / 'chk'))
+        for kfold, pipeline in enumerate(kfold_output['estimator']):
+            
+            save_model(pipeline.named_steps['net'].model,
+                tf_dir / f'net_{kfold:02d}.keras')
 
-        net.save(mdl_dir / 'net.hdf5')    
+            pipeline.named_steps['net'].model = None
+            pipeline.named_steps['net'].sk_params['callbacks'] = None
+            with open(sk_dir / f'pipeline_{kfold:02d}.pickle', 'wb') as f:
+                pickle.dump(pipeline, f)
 
-    metrics2csv(out_dir, tf_dir)
+    else:
+
+        check_gpu_support()
+
+        print('>> fitting neural net...\n')
+        pipeline.fit(x, y)
+
+        save_model(pipeline.named_steps['net'].model,
+            tf_dir / 'net.keras')
+
+        pipeline.named_steps['net'].model = None
+        pipeline.named_steps['net'].sk_params['callbacks'] = None
+        with open(sk_dir / 'pipeline.pickle', 'wb') as f:
+            pickle.dump(pipeline, f)
     
     return 0
 
 def predict(
-    mdl_dir: str,
-    xyz_dir: str,
-    conv_vars: dict = {},
+    model_dir: str,
+    x_path: str,
+    conv_params: dict = {},
+    **kwargs
 ):
     """
-    PREDICT. The neural network is restored from the model.[?] directory created
-    by launching the LEARN routine. The .xyz data for prediction are loaded,
-    featurised, and scaled consistently with the run that created the model.[?]
-    directory. The neural network is used to predict the corresponding XANES
-    spectra. Optionally, the predicted XANES spectra can be convoluted with an
-    energy-dependent arctan function (see xanesnet/convolute.py). The runtime
-    routine creates a predict.[?] directory in the current workspace; this
-    directory contains the predicted XANES spectra.
+    PREDICT. A preprocessing pipeline and neural network are restored from a
+    model.[?] directory created by the LEARN routine. The .xyz (X) data are
+    loaded and transformed (via the preprocessing pipeline); the neural
+    network is used to predict the corresponding XANES spectral (Y) data.
+    Convolution (see xanesnet/convolute.py) of the XANES spectral data is
+    possible if {conv_params} are provided.
+    This function creates a predict.[?] directory in the current workspace:
+
+    > predict.[?]
+      ~ n [?].txt (predicted XANES spectral data)
+      ~ n [?]_conv.txt (predicted XANES spectral data post-convolution)
 
     Args:
-        mdl_dir (str): The path to a model.[?] directory created by launching
+        model_dir (str): The path to a model.[?] directory created by
             the LEARN routine.
-        xyz_dir (str): The path to a directory containing .xyz (X) data; the
-            neural network is used to predict the corresponding XANES spectra.
-        conv_vars (dict, optional): The variable definitions for arctan
-            convolution as a dictionary, i.e. the variables necessary to set up
-            an ArctanConvoluter object (see xanesnet/convolute.py).
+        x_path (str): The path to the .xyz (X) data; expects a directory
+            containing .xyz files.
+        conv_params (dict, optional): A dictionary of keyword arguments
+            passed to the convoluter on initialisation; expects, at least,
+            the absorption edge energy ('e_edge') and Fermi energy 
+            ('e_fermi'). See xanesnet/convolute.py for additional info.
+            Defaults to {}.
     """
 
     predict_dir = Path(f'./predict.{int(time.time())}')
     
     predict_dir.mkdir()
 
-    check_gpu_support()
+    model_dir = Path(model_dir)
+    obj_dir = model_dir / 'objects'
+    np_dir = obj_dir / 'np'
+    tf_dir = obj_dir / 'tf'
+    sk_dir = obj_dir / 'sk'
 
-    mdl_dir = Path(mdl_dir)
-    x_dir = Path(xyz_dir)  
-
-    ids = load_data_ids(x_dir)
-
-    with open(mdl_dir / 'pkl' / 'descriptor.pkl', 'rb') as f:
+    with open(sk_dir / 'descriptor.pickle', 'rb') as f:
         descriptor = pickle.load(f)
 
-    x_spooler = (x_dir / (id_ + '.xyz') for id_ in ids)
-    print('>> loading and transforming X data...')
+    x_path = Path(x_path)  
+
+    ids = load_data_ids(x_path)
+
+    x_spooler = (x_path / (id_ + '.xyz') for id_ in ids)
+    print('>> loading X data...')
     x = [descriptor.transform(xyz2ase(f)) for f in tqdm.tqdm(x_spooler)]
     print()
    
     x = np.array(x, dtype = 'float32')
-   
-    with open(mdl_dir / 'pkl' / 'scaler.pkl', 'rb') as f:
-        scaler = pickle.load(f)
 
-    x = scaler.transform(x)
+    with open(np_dir / 'e.npy', 'rb') as f:
+        e = np.load(f)
 
-    net = tf.keras.models.load_model(mdl_dir / 'net.hdf5')
+    net = load_model(tf_dir / 'net.keras')
 
-    y = net.predict(x)
+    with open(sk_dir / 'pipeline.pickle', 'rb') as f:
+        pipeline = pickle.load(f)
+    pipeline.named_steps['net'].model = net
 
-    with open(mdl_dir / 'pkl' / 'e_scale.pkl', 'rb') as f:
-        e = pickle.load(f)
-
+    y_predicts = pipeline.predict(x)
+    
     print('>> spooling predictions to the xas2csv function...')
-    for id_, y_ in tqdm.tqdm(zip(ids, y)):
-        csv_f = predict_dir / f'{id_}.csv'
-        xas2csv(e, y_, csv_f)
+    for id_, y_predict in tqdm.tqdm(zip(ids, y_predicts)):
+        xas2csv(e, y_predict, 
+            predict_dir / f'{id_}.csv')
     print()
 
-    if conv_vars:
+    if conv_params:
         
-        convoluter = ArctanConvoluter(**conv_vars)
+        convoluter = ArctanConvoluter(**conv_params)
 
         print('>> spooling conv. predictions to the xas2csv function...')
-        for id_, y_ in tqdm.tqdm(zip(ids, y)):
-            csv_f = predict_dir / f'{id_}_conv.csv'
-            xas2csv(e, convoluter.convolute(e, y_), csv_f)
+        for id_, y_predict in tqdm.tqdm(zip(ids, y_predicts)):
+            xas2csv(e, convoluter.convolute(e, y_predict), 
+                predict_dir / f'{id_}_conv.csv')
         print()
         
     return 0
