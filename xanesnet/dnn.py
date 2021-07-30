@@ -22,10 +22,6 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 import numpy as np
 import tensorflow as tf
 
-from ase import Atoms
-from pathlib import Path
-from sklearn.model_selection import RepeatedKFold
-from sklearn.preprocessing import StandardScaler
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import Dense
@@ -55,60 +51,6 @@ def check_gpu_support():
     print()
 
     return 0
-
-def load_data_ids(*dirs: Path) -> list:
-    # returns a list of extensionless file names (used as data IDs) *if* the
-    # list is common to all directories (*dirs; data sources) and not empty, 
-    # otherwise raises a runtime error; prints out a message and the length of 
-    # the list
-
-    print('>> listing supplied data sources:')
-    
-    for i, d in enumerate(dirs):
-        print(f'>> {i + 1}. {d}')
-
-    print()
-
-    ids = [sorted([f.stem for f in d.iterdir() if f.is_file()]) 
-           for d in dirs]
-
-    if ids.count(ids[0]) != len(ids) or len(ids[0]) == 0:
-        raise RuntimeError('missing/mismatched files/IDs in data source(s)')
-    else:
-        ids = ids[0]
-
-    print(f'>> loaded {len(ids)} IDs from the supplied data source(s)')
-    
-    print()
-
-    return ids
-
-def xyz2ase(xyz_f: Path) -> Atoms:
-    # loads an .xyz (X) data file as an ase.atoms object
-
-    with open(xyz_f) as f:
-        xyz_f_l = [l.strip().split() for l in f]
-
-    z = np.array([l[0] for l in xyz_f_l[2:]], dtype = 'str')
-    xyz = np.array([l[1:] for l in xyz_f_l[2:]], dtype = 'float32')
-    
-    try:
-        return Atoms(z, xyz)
-    except KeyError:
-        return Atoms(z.astype('uint8'), xyz)
-
-def txt2xas(txt_f: Path) -> (np.ndarray, np.ndarray):
-    # loads a .txt FDMNES output (Y) data file as an np.ndarray object
-
-    with open(txt_f) as f:
-        txt_f_l = [l.strip().split() for l in f]
-
-    e = np.array([l[0] for l in txt_f_l[2:]], dtype = 'float32')
-    mu = np.array([l[1] for l in txt_f_l[2:]], dtype = 'float32')
-
-    mu /= mu[-1]
-
-    return e, mu
 
 def set_callbacks(**kwargs) -> list:
     # returns a list of tensorflow.keras.callbacks assembled from the **kwargs
@@ -175,16 +117,3 @@ def build_mlp(
     net.compile(loss = loss, optimizer = Adam(lr = lr))
 
     return net
-
-def xas2csv(e: np.ndarray, mu: np.ndarray, xas_f: Path):
-    # writes a XANES spectrum (e = energy scale; mu = spectral intensity) 
-    # in .csv format to a file (xas_f)
-
-    fmt = ['%.2f'] + ['%.8f']
-    header = 'e,mu'
-
-    with open(xas_f, 'w') as f:
-        np.savetxt(f, np.c_[e, mu / mu[-1]], delimiter = ',',
-                   fmt = fmt, header = header)
-
-    return 0

@@ -31,16 +31,17 @@ from sklearn.model_selection import KFold
 from sklearn.model_selection import RepeatedKFold
 from sklearn.model_selection import cross_validate
 from tensorflow.keras.wrappers.scikit_learn import KerasRegressor
-from tensorflow.keras.models import save_model
-from tensorflow.keras.models import load_model
 
-from xanesnet.core_utils import check_gpu_support
-from xanesnet.core_utils import load_data_ids
-from xanesnet.core_utils import xyz2ase
-from xanesnet.core_utils import txt2xas
-from xanesnet.core_utils import xas2csv
-from xanesnet.core_utils import set_callbacks
-from xanesnet.core_utils import build_mlp
+from xanesnet.io import load_data_ids
+from xanesnet.io import load_xyz
+from xanesnet.io import save_xyz
+from xanesnet.io import load_xanes
+from xanesnet.io import save_xanes
+from xanesnet.io import load_pipeline
+from xanesnet.io import save_pipeline
+from xanesnet.dnn import check_gpu_support
+from xanesnet.dnn import set_callbacks
+from xanesnet.dnn import build_mlp
 from xanesnet.convolute import ArctanConvoluter
 from xanesnet.descriptors import RDC
 from xanesnet.descriptors import WACSF
@@ -128,12 +129,12 @@ def learn(
 
     x_spooler = (x_path / (id_ + '.xyz') for id_ in ids)
     print('>> loading X data...')
-    x = [descriptor.transform(xyz2ase(f)) for f in tqdm.tqdm(x_spooler)]
+    x = [descriptor.transform(load_xyz(f)) for f in tqdm.tqdm(x_spooler)]
     print()
 
     y_spooler = (y_path / (id_ + '.txt') for id_ in ids)
     print('>> loading Y data...')
-    e, y = zip(*[txt2xas(f) for f in tqdm.tqdm(y_spooler)])
+    e, y = zip(*[load_xanes(f) for f in tqdm.tqdm(y_spooler)])
     print()
 
     e = np.array(e, dtype = 'float32')
@@ -184,14 +185,11 @@ def learn(
         )
 
         for kfold, pipeline in enumerate(kfold_output['estimator']):
-            
-            save_model(pipeline.named_steps['net'].model,
-                tf_dir / f'net_{kfold:02d}.keras')
-
-            pipeline.named_steps['net'].model = None
-            pipeline.named_steps['net'].sk_params['callbacks'] = None
-            with open(sk_dir / f'pipeline_{kfold:02d}.pickle', 'wb') as f:
-                pickle.dump(pipeline, f)
+            save_pipeline(
+                tf_dir / f'net_{kfold:02d}.keras', 
+                sk_dir / f'pipeline_{kfold:02d}.pickle',
+                pipeline
+            )
 
     else:
 
@@ -200,13 +198,11 @@ def learn(
         print('>> fitting neural net...\n')
         pipeline.fit(x, y)
 
-        save_model(pipeline.named_steps['net'].model,
-            tf_dir / 'net.keras')
-
-        pipeline.named_steps['net'].model = None
-        pipeline.named_steps['net'].sk_params['callbacks'] = None
-        with open(sk_dir / 'pipeline.pickle', 'wb') as f:
-            pickle.dump(pipeline, f)
+        save_pipeline(
+            tf_dir / f'net.keras', 
+            sk_dir / f'pipeline.pickle',
+            pipeline
+        )
     
     return 0
 
@@ -260,7 +256,7 @@ def predict(
 
     x_spooler = (x_path / (id_ + '.xyz') for id_ in ids)
     print('>> loading X data...')
-    x = [descriptor.transform(xyz2ase(f)) for f in tqdm.tqdm(x_spooler)]
+    x = [descriptor.transform(load_xyz(f)) for f in tqdm.tqdm(x_spooler)]
     print()
    
     x = np.array(x, dtype = 'float32')
@@ -268,28 +264,28 @@ def predict(
     with open(np_dir / 'e.npy', 'rb') as f:
         e = np.load(f)
 
-    net = load_model(tf_dir / 'net.keras')
+    pipeline = load_pipeline(
+        tf_dir / 'net.keras',
+        sk_dir / 'pipeline.pickle'
+    )
 
-    with open(sk_dir / 'pipeline.pickle', 'rb') as f:
-        pipeline = pickle.load(f)
-    pipeline.named_steps['net'].model = net
-
+    print('>> predicting Y data with neural net...')
     y_predicts = pipeline.predict(x)
+    print()
     
-    print('>> spooling predictions to the xas2csv function...')
+    print('>> saving Y data predictions...')
     for id_, y_predict in tqdm.tqdm(zip(ids, y_predicts)):
-        xas2csv(e, y_predict, 
-            predict_dir / f'{id_}.csv')
+        save_xanes(predict_dir / f'{id_}.csv', e, y_predict)
     print()
 
     if conv_params:
         
         convoluter = ArctanConvoluter(**conv_params)
 
-        print('>> spooling conv. predictions to the xas2csv function...')
+        print('>> convoluting and saving Y data predictions...')
         for id_, y_predict in tqdm.tqdm(zip(ids, y_predicts)):
-            xas2csv(e, convoluter.convolute(e, y_predict), 
-                predict_dir / f'{id_}_conv.csv')
+            y_predict_conv = convoluter.convolute(e, y_predict)
+            save_xanes(predict_dir / f'{id_}_conv.csv', e, y_predict_conv)
         print()
         
     return 0
