@@ -42,8 +42,8 @@ class Convoluter(ABC):
         self,
         e_edge: float,
         e_fermi: float = -5.0, 
-        e_min: float = -30.0,
-        e_max: float = 75.0,
+        e_min: float = -50.0,
+        e_max: float = 150.0,
         de: float = 0.2
     ):
         """
@@ -159,13 +159,13 @@ class ArctanConvoluter(Convoluter):
         self, 
         e_edge: float,
         e_fermi: float = -5.0,
-        e_min: float = -30.0,
-        e_max: float = 75.0,
+        e_min: float = -50.0,
+        e_max: float = 150.0,
         de: float = 0.2,
         e_l: float = 30.0, 
         e_c: float = 30.0,
-        g_hole: float = 5.0,
-        g_max: float = 15.0
+        g_hole: float = 2.0,
+        g_m: float = 15.0
     ):
         """
         Args:
@@ -192,14 +192,14 @@ class ArctanConvoluter(Convoluter):
                 Defaults to 30.0 eV.
             g_hole (float): The core state width (in eV).
                 Defaults to 5.0 eV.
-            g_max (float): The final state width (in eV).
+            g_m (float): The final state width (in eV).
                 Defaults to 30.0 eV.
         """
  
         self.e_l = float(e_l)
         self.e_c = float(e_c)
         self.g_hole = float(g_hole)
-        self.g_max = float(g_max)
+        self.g_m = float(g_m)
         
         super().__init__(
             float(e_edge),
@@ -213,16 +213,14 @@ class ArctanConvoluter(Convoluter):
         # returns an energy-dependent arctangent function; see p.43-48 in the
         # FDMNES user manual (Section C: Convolution) for additional details
    
-        with np.errstate(divide = 'ignore'):
-            g = (self.g_hole 
-                + (self.g_max 
-                * 0.5 + ((1.0 / np.pi) 
-                        * (np.arctan((np.pi / 3.0) * (self.g_max / self.e_l) 
-                            * (((self.e_aux - self.e_fermi) / self.e_c) 
-                            - (1.0 / ((self.e_aux - self.e_fermi) / self.e_c)**2)))
-                        )
-                    )
+        e = (self.e_aux - self.e_fermi) / self.e_c
+
+        g = self.g_hole + self.g_m * (
+            (1.0 / 2.0) + (1.0 / np.pi) * (
+                np.arctan(
+                    (np.pi / 3.0) * (self.g_m / self.e_l) * (e - (1.0 / e**2))
                 )
             )
+        )
         
         return g
