@@ -42,6 +42,7 @@ from xanesnet.io import save_pipeline
 from xanesnet.dnn import check_gpu_support
 from xanesnet.dnn import set_callbacks
 from xanesnet.dnn import build_mlp
+from xanesnet.utils import print_cross_validation_scores
 from xanesnet.convolute import ArctanConvoluter
 from xanesnet.descriptors import RDC
 from xanesnet.descriptors import WACSF
@@ -183,6 +184,8 @@ def learn(
             return_estimator = True, 
             verbose = 0
         )
+
+        print_cross_validation_scores(kfold_output)
 
         for kfold, pipeline in enumerate(kfold_output['estimator']):
             save_pipeline(
