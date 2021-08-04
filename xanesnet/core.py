@@ -295,7 +295,7 @@ def predict(
     
     print('>> saving Y data predictions...')
     for id_, y_predict in tqdm.tqdm(zip(ids, y_predicts)):
-        save_xanes(predict_dir / f'{id_}.csv', e, y_predict)
+        save_xanes(predict_dir / f'{id_}.txt', e, y_predict)
     print()
 
     if conv_params:
@@ -305,7 +305,7 @@ def predict(
         print('>> convoluting and saving Y data predictions...')
         for id_, y_predict in tqdm.tqdm(zip(ids, y_predicts)):
             y_predict_conv = convoluter.convolute(e, y_predict)
-            save_xanes(predict_dir / f'{id_}_conv.csv', e, y_predict_conv)
+            save_xanes(predict_dir / f'{id_}_conv.txt', e, y_predict_conv)
         print()
         
     return 0
