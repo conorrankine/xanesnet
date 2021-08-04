@@ -66,13 +66,7 @@ def load_json_inp_f(json_inp_f: str) -> dict:
         with open(json_inp_f) as f:
             inp = json.load(f)
 
-        for key, val in inp.items():
-            if isinstance(val, dict):
-                print(f'>> {key}')
-                for subkey, subval in val.items():
-                    print(' ' * 3 + f'>> {subkey} :: {subval}')
-            else:
-                print(f'>> {key} :: {val}')
+        print_nested_dict(inp)
         
         print()
         
@@ -81,6 +75,15 @@ def load_json_inp_f(json_inp_f: str) -> dict:
         inp = {}
 
     return inp
+
+def print_nested_dict(dict_: dict, nested_level: int = 0):
+
+    for key, val in dict_.items():
+        if not isinstance(val, dict):
+            print('  ' * nested_level + f'>> {key} :: {val}')
+        else:
+            print('  ' * nested_level + f'>> {key}')
+            print_nested_dict(val, nested_level = nested_level + 1)
 
 ###############################################################################
 ################################ MAIN ROUTINE #################################
