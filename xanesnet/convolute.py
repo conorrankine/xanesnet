@@ -198,9 +198,87 @@ class FixedGammaConvoluter(Convoluter):
 
     def _get_lorentz_width(self) -> float:
         # returns fixed gamma convolutional width; see p.43-48 in the
-        # FDMNES user manual (Section C: Convolution) for additional details
+        # FDMNES user manual (Section C: Convolution) for details
 
         return self.g_hole
+
+class SeahDenchConvoluter(Convoluter):
+    """
+    A class for convoluting XANES spectra with an energy-dependent Seah-Dench
+    -type convolution model to account for phenomenological effects like
+    core-hole lifetime broadening, instrumental resolution, and many-body
+    effects (e.g. inelastic losses); convolution is carried out with a 
+    Lorentzian kernel over an auxilliary energy grid (e_min -> e_max : de)
+    defined relative to an absorption edge (e_edge).
+    
+    The width of the Lorentzian kernel at each point on the auxilliary energy
+    grid is determined with a parameterised energy-dependent Seah-Dench-type
+    function. The implementation here is similiar to the implementation in the
+    FDMNES program package (<http://fdmnes.neel.cnrs.fr/>); see p.43-48 in the
+    FDMNES user manual (Section C: Convolution) for additional details.
+    """
+
+    def __init__(
+        self, 
+        e_edge: float,
+        e_fermi: float = -5.0,
+        e_min: float = -50.0,
+        e_max: float = 150.0,
+        de: float = 0.2,
+        a: float = 1.0,
+        g_hole: float = 2.0,
+        g_m: float = 15.0
+    ):
+        """
+        Args:
+            e_edge (float): The absorption edge energy (in eV); available @
+                <http://skuld.bmsc.washington.edu/scatter/AS_periodic.html>
+            e_fermi (float): The Fermi energy (in eV, relative to the
+                absorption edge); cross-sectional contributions from the
+                occupied states below the Fermi energy are removed.
+                Defaults to -5.0 eV.
+            e_min (float): The minimum energy (in eV, relative to the
+                absorption edge) for the auxilliary energy grid that the
+                arctangent convoluter operates over.
+                Defaults to -50.0 eV.
+            e_max (float): The maximum energy (in eV, relative to the
+                absorption edge) for the auxilliary energy grid that the
+                arctangent convoluter operates over.
+                Defaults to +150.0 eV.
+            de (float): The step size (in eV) for the auxilliary energy grid
+                that the arctangent convoluter operates over.
+                Defaults to 0.2 eV.
+            a (float): Seah-Dench 'A' factor/constant.
+                Defaults to 1.0.
+            g_hole (float): The core state width (in eV).
+                Defaults to 2.0 eV.
+            g_m (float): The final state width (in eV).
+                Defaults to 15.0 eV.
+        """
+
+        self.a = float(a)
+        self.g_hole = float(g_hole)
+        self.g_m = float(g_m)
+
+        super().__init__(
+            float(e_edge),
+            float(e_fermi), 
+            float(e_min), 
+            float(e_max), 
+            float(de)
+        )
+
+    def _get_lorentz_width(self) -> np.ndarray:
+        # returns an energy-dependent Seah-Dench-type function; see p.43-48
+        # in the FDMNES user manual (Section C: Convolution) for details
+
+        e = self.e_aux - self.e_fermi
+
+        g = self.g_hole + (
+            (self.a * self.g_m * e) / (self.g_m + (self.a * e))
+        )
+
+        return g
 
 class ArctanConvoluter(Convoluter):
     """
@@ -274,7 +352,7 @@ class ArctanConvoluter(Convoluter):
         
     def _get_lorentz_width(self) -> np.ndarray:
         # returns an energy-dependent arctangent function; see p.43-48 in the
-        # FDMNES user manual (Section C: Convolution) for additional details
+        # FDMNES user manual (Section C: Convolution) for details
    
         e = (self.e_aux - self.e_fermi) / self.e_c
         
