@@ -212,7 +212,10 @@ class WACSF(VectorDescriptor):
 
         super().__init__(r_min, r_max)
 
-        self.use_g2 = bool(g2_vars)
+        n_g1 = 1
+        self.g1_idx = (0, n_g1)
+
+        self.use_g2 = g2_vars is not None
         if self.use_g2:
             g2_vars_ = np.array(g2_vars, dtype = 'float32')
             try:
@@ -220,8 +223,13 @@ class WACSF(VectorDescriptor):
             except ValueError:
                 raise ValueError(f'g2_vars is not formatted properly; ',
                     'expected [[h1,m1],[h2,m2],...,[hn,mn]]')
+            n_g2 = len(g2_vars)
+            self.g2_idx = (n_g1, n_g1 + n_g2)
+        else:
+            n_g2 = 0
+            self.g2_idx = None
 
-        self.use_g4 = bool(g4_vars)
+        self.use_g4 = g4_vars is not None
         if self.use_g4:
             g4_vars_ = np.array(g4_vars, dtype = 'float32')
             try:
@@ -229,6 +237,11 @@ class WACSF(VectorDescriptor):
             except ValueError:
                 raise ValueError(f'g4_vars is not formatted properly; ',
                     'expected [[h1,m1,l1,z1],[h2,m2,l2,z2],...,[hn,mn,ln,zn]]')
+            n_g4 = len(g4_vars)
+            self.g4_idx = (n_g1 + n_g2, n_g1 + n_g2 + n_g4)
+        else:
+            n_g4 = 0
+            self.g4_idx = None
 
         if isinstance(with_weighting, bool):
             self.with_weighting = with_weighting

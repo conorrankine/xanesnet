@@ -156,21 +156,16 @@ def learn(
 
     scalers = [('centering', CentreScaler())]
     if isinstance(descriptor, RDC):
-        scalers.append(('scaling', 
-            GroupMaxAbsScaler()))
+        scalers.append(('scaling', GroupMaxAbsScaler()))
     elif isinstance(descriptor, WACSF):
-        group_idx = (0,1)
         scalers.append(('g1_scaling', 
-            GroupMaxAbsScaler(group_idx = group_idx)))
+            GroupMaxAbsScaler(group_idx = descriptor.g1_idx)))
         if descriptor.use_g2:
-            group_idx = (1,1+len(descriptor.g2_h))
             scalers.append(('g2_scaling', 
-                GroupMaxAbsScaler(group_idx = group_idx)))
+                GroupMaxAbsScaler(group_idx = descriptor.g2_idx)))
         if descriptor.use_g4:
-            group_idx = (1+len(descriptor.g2_h),
-                1+len(descriptor.g2_h)+len(descriptor.g4_h))
             scalers.append(('g4_scaling',
-                GroupMaxAbsScaler(group_idx = group_idx)))
+                GroupMaxAbsScaler(group_idx = descriptor.g4_idx)))
 
     net = KerasRegressor(
         build_fn = build_mlp, 
