@@ -86,6 +86,14 @@ class CentreScaler(BaseEstimator, TransformerMixin):
 
         first_pass = not hasattr(self, "n_samples_seen_")
 
+        X = self._validate_data(
+            X,
+            reset = first_pass,
+            accept_sparse = False,
+            estimator = self,
+            force_all_finite = 'allow-nan'
+        )
+
         if first_pass:
             self.sum_ = np.nansum(X, axis = 0)
             self.n_samples_seen_ = X.shape[0]
@@ -109,6 +117,15 @@ class CentreScaler(BaseEstimator, TransformerMixin):
             np.ndarray: Centred X data (2D array; n_samples, n_features).
         """
 
+        X = self._validate_data(
+            X,
+            reset = False,
+            accept_sparse = False,
+            copy = self.copy,
+            estimator = self,
+            force_all_finite = 'allow-nan'
+        )
+
         X -= self.mean_
 
         return X
@@ -125,6 +142,15 @@ class CentreScaler(BaseEstimator, TransformerMixin):
             np.ndarray: X data (2D array; n_samples, n_features) reverted
                 to original, pre-centred state.
         """
+
+        X = self._validate_data(
+            X,
+            reset = False,
+            accept_sparse = False,
+            copy = self.copy,
+            estimator = self,
+            force_all_finite = 'allow-nan'
+        )
 
         X += self.mean_
 
@@ -229,6 +255,14 @@ class GroupMaxAbsScaler(BaseEstimator, TransformerMixin):
 
         first_pass = not hasattr(self, "n_samples_seen_")
 
+        X = self._validate_data(
+            X,
+            reset = first_pass,
+            accept_sparse = False,
+            estimator = self,
+            force_all_finite = 'allow-nan'
+        )
+
         if not self.group_idx:
             max_abs_ = np.nanmax(np.absolute(X))
         else:
@@ -257,6 +291,15 @@ class GroupMaxAbsScaler(BaseEstimator, TransformerMixin):
             np.ndarray: Scaled X data (2D array; n_samples, n_features).
         """
 
+        X = self._validate_data(
+            X,
+            reset = False,
+            accept_sparse = False,
+            copy = self.copy,
+            estimator = self,
+            force_all_finite = 'allow-nan'
+        )
+
         if not self.group_idx:
             X /= (self.max_abs_ / self.group_weight)
         else:
@@ -277,6 +320,15 @@ class GroupMaxAbsScaler(BaseEstimator, TransformerMixin):
             np.ndarray: X data (2D array; n_samples, n_features) reverted
                 to original, pre-scaled state.
         """
+
+        X = self._validate_data(
+            X,
+            reset = False,
+            accept_sparse = False,
+            copy = self.copy,
+            estimator = self,
+            force_all_finite = 'allow-nan'
+        )
 
         if not self.group_idx:
             X *= (self.max_abs_ / self.group_weight)
