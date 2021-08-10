@@ -149,6 +149,12 @@ def learn(
 
     x = np.array(x, dtype = 'float32')
     y = np.array(y, dtype = 'float32')
+
+    if x.ndim == 1:
+        if len(ids) == 1:
+            x = x.reshape(1, -1)
+        else:
+            x = x.reshape(-1, 1)
  
     for array_name, array in {'x': x, 'y': y, 'e': e}.items():
         with open(np_dir / f'{array_name}.npy', 'wb') as f:
@@ -275,6 +281,12 @@ def predict(
     print()
    
     x = np.array(x, dtype = 'float32')
+
+    if x.ndim == 1:
+        if len(ids) == 1:
+            x.resize(1, -1)
+        else:
+            x.resize(-1, 1)
 
     with open(np_dir / 'e.npy', 'rb') as f:
         e = np.load(f)
