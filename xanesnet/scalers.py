@@ -196,12 +196,15 @@ class GroupMaxAbsScaler(BaseEstimator, TransformerMixin):
 
         self.copy = copy
 
-        if (isinstance(group_idx, (list, tuple)) and len(group_idx) == 2 and 
-            all([isinstance(i, int) for i in group_idx])):
+        if group_idx:
+            if (isinstance(group_idx, (list, tuple)) and len(group_idx) == 2
+            and all([isinstance(i, int) for i in group_idx])):
                 self.group_idx = group_idx
+            else:
+                raise ValueError(f'expected group_idx: list/tuple containing ',
+                'two indices; got {group_idx}')
         else:
-            raise ValueError(f'expected group_idx: list/tuple containing two '
-                'indices; got {group_idx}')
+            self.group_idx = group_idx
 
         if isinstance(group_weight, (int, float)):
             self.group_weight = float(group_weight)
