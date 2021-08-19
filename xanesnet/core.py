@@ -58,6 +58,7 @@ def learn(
     y_path: str,
     descriptor_type: str,
     descriptor_params: dict = {},
+    descriptor_weights: dict = {},
     kfold_params: dict = {},
     hyperparams: dict = {},
     epochs: int = 100,
@@ -87,6 +88,10 @@ def learn(
             See xanesnet.descriptors for additional information.
         descriptor_params (dict, optional): A dictionary of keyword
             arguments passed to the descriptor on initialisation.
+            Defaults to {}.
+        descriptor_weights (dict, optional): A dictionary of weights for
+            descriptor components; primarily for weighting the G1, G2, and G4
+            WACSF components independently.
             Defaults to {}.
         kfold_params (dict, optional): A dictionary of keyword arguments
             passed to a scikit-learn K-fold splitter (KFold or RepeatedKFold).
@@ -162,16 +167,33 @@ def learn(
 
     scalers = [('centering', CentreScaler())]
     if isinstance(descriptor, RDC):
-        scalers.append(('scaling', GroupMaxAbsScaler()))
+        scalers.append(
+            ('scaling', GroupMaxAbsScaler())
+        )
     elif isinstance(descriptor, WACSF):
-        scalers.append(('g1_scaling', 
-            GroupMaxAbsScaler(group_idx = descriptor.g1_idx)))
+        scalers.append(
+            ('g1_scaling', GroupMaxAbsScaler(
+                group_idx = descriptor.g1_idx,
+                group_weight = descriptor_weights['g1_weight'] 
+                    if 'g1_weight' in descriptor_weights else 1.0)
+            )
+        )
         if descriptor.use_g2:
-            scalers.append(('g2_scaling', 
-                GroupMaxAbsScaler(group_idx = descriptor.g2_idx)))
+            scalers.append(
+                ('g2_scaling', GroupMaxAbsScaler(
+                    group_idx = descriptor.g2_idx,
+                    group_weight = descriptor_weights['g2_weight']
+                        if 'g2_weight' in descriptor_weights else 1.0)
+                )
+            )
         if descriptor.use_g4:
-            scalers.append(('g4_scaling',
-                GroupMaxAbsScaler(group_idx = descriptor.g4_idx)))
+            scalers.append(
+                ('g4_scaling', GroupMaxAbsScaler(
+                    group_idx = descriptor.g4_idx,
+                    group_weight = descriptor_weights['g4_weight']
+                        if 'g4_weight' in descriptor_weights else 1.0)
+                )
+            )
 
     net = KerasRegressor(
         build_fn = build_mlp, 
