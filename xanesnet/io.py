@@ -99,8 +99,8 @@ def load_data_ids(*dirs: Path) -> list:
 
     print()
 
-    ids = [sorted([f.stem for f in d.iterdir() if f.is_file()]) 
-           for d in dirs]
+    ids = [sorted([f.stem for f in d.iterdir() if (f.is_file()
+        and not f.stem.startswith('.'))]) for d in dirs]
 
     if ids.count(ids[0]) != len(ids) or len(ids[0]) == 0:
         raise RuntimeError('missing/mismatched files/IDs in data source(s)')
