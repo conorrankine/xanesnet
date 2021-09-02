@@ -319,12 +319,15 @@ def predict(
     )
 
     print('>> predicting Y data with neural net...')
-    y_predicts = pipeline.predict(x)
+    y_predict = pipeline.predict(x)
     print()
     
+    if y_predict.ndim == 1:
+        y_predict = y_predict.reshape(-1, y_predict.size)
+
     print('>> saving Y data predictions...')
-    for id_, y_predict in tqdm.tqdm(zip(ids, y_predicts)):
-        save_xanes(predict_dir / f'{id_}.txt', e, y_predict)
+    for id_, y_predict_ in tqdm.tqdm(zip(ids, y_predict)):
+        save_xanes(predict_dir / f'{id_}.txt', e, y_predict_)
     print()
 
     if conv_params:
@@ -332,9 +335,9 @@ def predict(
         convoluter = ArctanConvoluter(**conv_params)
 
         print('>> convoluting and saving Y data predictions...')
-        for id_, y_predict in tqdm.tqdm(zip(ids, y_predicts)):
-            y_predict_conv = convoluter.convolute(e, y_predict)
-            save_xanes(predict_dir / f'{id_}_conv.txt', e, y_predict_conv)
+        for id_, y_predict_ in tqdm.tqdm(zip(ids, y_predict)):
+            y_predict_conv_ = convoluter.convolute(e, y_predict_)
+            save_xanes(predict_dir / f'{id_}_conv.txt', e, y_predict_conv_)
         print()
         
     return 0
