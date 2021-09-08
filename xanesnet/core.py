@@ -44,8 +44,6 @@ from xanesnet.dnn import set_callbacks
 from xanesnet.dnn import build_mlp
 from xanesnet.utils import print_cross_validation_scores
 from xanesnet.convolute import ArctanConvoluter
-from xanesnet.scalers import CentreScaler
-from xanesnet.scalers import GroupMaxAbsScaler
 from xanesnet.descriptors import RDC
 from xanesnet.descriptors import WACSF
 
@@ -165,36 +163,6 @@ def learn(
         with open(np_dir / f'{array_name}.npy', 'wb') as f:
             np.save(f, array)
 
-    scalers = [('centering', CentreScaler())]
-    if isinstance(descriptor, RDC):
-        scalers.append(
-            ('scaling', GroupMaxAbsScaler())
-        )
-    elif isinstance(descriptor, WACSF):
-        scalers.append(
-            ('g1_scaling', GroupMaxAbsScaler(
-                group_idx = descriptor.g1_idx,
-                group_weight = descriptor_weights['g1_weight'] 
-                    if 'g1_weight' in descriptor_weights else 1.0)
-            )
-        )
-        if descriptor.use_g2:
-            scalers.append(
-                ('g2_scaling', GroupMaxAbsScaler(
-                    group_idx = descriptor.g2_idx,
-                    group_weight = descriptor_weights['g2_weight']
-                        if 'g2_weight' in descriptor_weights else 1.0)
-                )
-            )
-        if descriptor.use_g4:
-            scalers.append(
-                ('g4_scaling', GroupMaxAbsScaler(
-                    group_idx = descriptor.g4_idx,
-                    group_weight = descriptor_weights['g4_weight']
-                        if 'g4_weight' in descriptor_weights else 1.0)
-                )
-            )
-
     net = KerasRegressor(
         build_fn = build_mlp, 
         inp_dim = x[0].size, 
@@ -205,7 +173,7 @@ def learn(
         verbose = 2
     )
 
-    pipeline = Pipeline([*scalers, ('net', net)])
+    pipeline = Pipeline([('scaler', StandardScaler()), ('net', net)])
 
     if kfold_params:
 
