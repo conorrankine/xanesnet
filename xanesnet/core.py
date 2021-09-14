@@ -190,7 +190,7 @@ def learn(
             cv = kfold_spooler, 
             return_train_score = True,
             return_estimator = True, 
-            verbose = 0
+            verbose = kfold_spooler.get_n_splits()
         )
 
         print_cross_validation_scores(kfold_output)
