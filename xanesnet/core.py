@@ -61,20 +61,14 @@ def learn(
     hyperparams: dict = {},
     epochs: int = 100,
     callbacks: dict = {},
+    save: bool = True,
     **kwargs
 ):
     """
     LEARN. The .xyz (X) and XANES spectral (Y) data are loaded and transformed;
     a neural network is set up and fit to these data to find an Y <- X mapping.
-    K-fold cross-validation is possible if {kfold_params} are provided.
-    This function creates a model.[?] directory in the current workspace: 
+    K-fold cross-validation is possible if {kfold_params} are provided. 
     
-    > model.[?]
-      > objects
-        > tf (contains the optimised Keras neural network(s), <model.keras>)
-        > np (contains serialised .npy arrays)
-        > sk (contains serialised .pickle preprocessors and pipelines)
-
     Args:
         x_path (str): The path to the .xyz (X) data; expects a directory
             containing .xyz files.
@@ -106,16 +100,22 @@ def learn(
             expected to be dictionary of arguments for the defined callback,
             e.g. "earlystopping": {"patience": 10, "verbose": 1}
             Defaults to {}.
+        save (bool, optional): If True, a model directory (containing data,
+            serialised scaling/pipeline objects, the serialised neural net,
+            and neural net fragments and logs) is created in the current
+            working directory; this is required to restore the neural net state
+            at a later time in the `predict` routine.
+            Defaults to True.
     """
 
-    model_dir = Path(f'./model.{int(time.time())}')
-    obj_dir = model_dir / 'objects'
-    np_dir = obj_dir / 'np'
-    tf_dir = obj_dir / 'tf'
-    sk_dir = obj_dir / 'sk'
-
-    for d in (model_dir, obj_dir, np_dir, tf_dir, sk_dir):
-        d.mkdir()
+    if save:
+        model_dir = Path(f'./model.{int(time.time())}')
+        obj_dir = model_dir / 'objects'
+        np_dir = obj_dir / 'np'
+        tf_dir = obj_dir / 'tf'
+        sk_dir = obj_dir / 'sk'
+        for d in (model_dir, obj_dir, np_dir, tf_dir, sk_dir):
+            d.mkdir()
 
     if descriptor_type.lower() == 'rdc':
         descriptor = RDC(**descriptor_params)
@@ -125,8 +125,9 @@ def learn(
         raise ValueError(f'descriptor type not recognised; ',
             'got {descriptor_type}')
 
-    with open(sk_dir / 'descriptor.pickle', 'wb') as f:
-        pickle.dump(descriptor, f)    
+    if save:
+        with open(sk_dir / 'descriptor.pickle', 'wb') as f:
+            pickle.dump(descriptor, f)    
 
     x_path = Path(x_path)
     y_path = Path(y_path)
@@ -159,9 +160,10 @@ def learn(
         else:
             x = x.reshape(-1, 1)
  
-    for array_name, array in {'x': x, 'y': y, 'e': e}.items():
-        with open(np_dir / f'{array_name}.npy', 'wb') as f:
-            np.save(f, array)
+    if save:
+        for array_name, array in {'x': x, 'y': y, 'e': e}.items():
+            with open(np_dir / f'{array_name}.npy', 'wb') as f:
+                np.save(f, array)
 
     net = KerasRegressor(
         build_fn = build_mlp, 
@@ -195,12 +197,13 @@ def learn(
 
         print_cross_validation_scores(kfold_output)
 
-        for kfold, pipeline in enumerate(kfold_output['estimator']):
-            save_pipeline(
-                tf_dir / f'net_{kfold:02d}.keras', 
-                sk_dir / f'pipeline_{kfold:02d}.pickle',
-                pipeline
-            )
+        if save:
+            for kfold, pipeline in enumerate(kfold_output['estimator']):
+                save_pipeline(
+                    tf_dir / f'net_{kfold:02d}.keras', 
+                    sk_dir / f'pipeline_{kfold:02d}.pickle',
+                    pipeline
+                )
 
     else:
 
@@ -209,11 +212,12 @@ def learn(
         print('>> fitting neural net...\n')
         pipeline.fit(x, y)
 
-        save_pipeline(
-            tf_dir / f'net.keras', 
-            sk_dir / f'pipeline.pickle',
-            pipeline
-        )
+        if save:
+            save_pipeline(
+                tf_dir / f'net.keras', 
+                sk_dir / f'pipeline.pickle',
+                pipeline
+            )
     
     return 0
 

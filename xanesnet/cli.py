@@ -43,6 +43,10 @@ def parse_args(args: list):
     learn_p.add_argument('inp_f', type = str, 
         help = ('path to a .txt input file with variable definitions ',
                 '(see examples & docs)'))
+    learn_p.add_argument('--no-save', dest = 'save', action = 'store_false',
+        help = ('toggles saving off; the model directory \(containing data ',
+            'serialised scaling/pipeline objects, the serialised neural net, ',
+            'and neural net fragments and logs\) is not created'))
 
     predict_p = sub_p.add_parser('predict')
     predict_p.add_argument('mdl_dir', type = str, 
@@ -128,7 +132,7 @@ def main(args: list):
           f'\n***************************************************************\n')
 
     if args.mode == 'learn':
-        learn(**load_json_inp_f(args.inp_f))
+        learn(**load_json_inp_f(args.inp_f), save = args.save)
 
     if args.mode == 'predict':
         predict(args.mdl_dir, args.xyz_dir, **load_json_inp_f(args.conv_inp_f)) 
