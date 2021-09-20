@@ -56,7 +56,6 @@ def learn(
     y_path: str,
     descriptor_type: str,
     descriptor_params: dict = {},
-    descriptor_weights: dict = {},
     kfold_params: dict = {},
     hyperparams: dict = {},
     epochs: int = 100,
@@ -80,10 +79,6 @@ def learn(
             See xanesnet.descriptors for additional information.
         descriptor_params (dict, optional): A dictionary of keyword
             arguments passed to the descriptor on initialisation.
-            Defaults to {}.
-        descriptor_weights (dict, optional): A dictionary of weights for
-            descriptor components; primarily for weighting the G1, G2, and G4
-            WACSF components independently.
             Defaults to {}.
         kfold_params (dict, optional): A dictionary of keyword arguments
             passed to a scikit-learn K-fold splitter (KFold or RepeatedKFold).
