@@ -37,10 +37,14 @@ from xanesnet.utils import print_nested_dict
 def parse_args(args: list):
 
     p = ArgumentParser()
+
+    p.add_argument('-v', '--version', action = 'version', 
+        version = xanesnet.__version__)
     
     sub_p = p.add_subparsers(dest = 'mode')
 
     learn_p = sub_p.add_parser('learn')
+    
     learn_p.add_argument('inp_f', type = str, 
         help = ('path to a .txt input file with variable definitions ',
                 '(see examples & docs)'))
@@ -50,6 +54,7 @@ def parse_args(args: list):
             'and neural net fragments and logs\) is not created'))
 
     predict_p = sub_p.add_parser('predict')
+    
     predict_p.add_argument('mdl_dir', type = str, 
         help = ('path to a model.[?] directory created using learn mode'))
     predict_p.add_argument('xyz_dir', type = str, 
