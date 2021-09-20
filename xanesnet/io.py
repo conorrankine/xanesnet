@@ -86,33 +86,6 @@ def save_xanes(xanes_f: Path, e: np.ndarray, m: np.ndarray):
 
     return 0
 
-def load_data_ids(*dirs: Path) -> list:
-    # returns a list of extensionless file names (used as data IDs) *if* the
-    # list is common to all directories (*dirs; data sources) and not empty,
-    # otherwise raises a runtime error; prints out a message and the length
-    # of the list
-
-    print('>> listing supplied data sources:')
-    
-    for i, d in enumerate(dirs):
-        print(f'>> {i + 1}. {d}')
-
-    print()
-
-    ids = [sorted([f.stem for f in d.iterdir() if (f.is_file()
-        and not f.stem.startswith('.'))]) for d in dirs]
-
-    if ids.count(ids[0]) != len(ids) or len(ids[0]) == 0:
-        raise RuntimeError('missing/mismatched files/IDs in data source(s)')
-    else:
-        ids = ids[0]
-
-    print(f'>> loaded {len(ids)} IDs from the supplied data source(s)')
-    
-    print()
-
-    return ids
-
 def load_pipeline(keras_f: Path, pipeline_f: Path) -> Pipeline:
     # loads an sklearn pipeline with a Keras Sequential model; the pipeline
     # is reconstructed to add the Keras elements that were removed when the

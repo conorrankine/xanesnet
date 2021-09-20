@@ -28,6 +28,7 @@ import xanesnet
 
 from xanesnet.core import learn
 from xanesnet.core import predict
+from xanesnet.utils import print_nested_dict
 
 ###############################################################################
 ############################ CLI ARGUMENT PARSING #############################
@@ -60,34 +61,6 @@ def parse_args(args: list):
     args = p.parse_args()
 
     return args  
-
-def load_json_inp_f(json_inp_f: str) -> dict:
-    
-    if json_inp_f:
-
-        print(f'>> loading JSON user input @ {json_inp_f}\n')
-    
-        with open(json_inp_f) as f:
-            inp = json.load(f)
-
-        print_nested_dict(inp)
-        
-        print()
-        
-    else:
-        
-        inp = {}
-
-    return inp
-
-def print_nested_dict(dict_: dict, nested_level: int = 0):
-
-    for key, val in dict_.items():
-        if not isinstance(val, dict):
-            print('  ' * nested_level + f'>> {key} :: {val}')
-        else:
-            print('  ' * nested_level + f'>> {key}')
-            print_nested_dict(val, nested_level = nested_level + 1)
 
 ###############################################################################
 ################################ MAIN ROUTINE #################################
@@ -132,10 +105,23 @@ def main(args: list):
           f'\n***************************************************************\n')
 
     if args.mode == 'learn':
-        learn(**load_json_inp_f(args.inp_f), save = args.save)
+        print(f'>> loading JSON input @ {args.inp_f}\n')
+        with open(args.inp_f) as f:
+            inp = json.load(f)
+        print_nested_dict(inp, nested_level = 1)
+        print('')
+        learn(**inp, save = args.save)
 
     if args.mode == 'predict':
-        predict(args.mdl_dir, args.xyz_dir, **load_json_inp_f(args.conv_inp_f)) 
+        if args.conv_inp_f:
+            print(f'>> loading JSON convolutional input @ {args.conv_inp_f}\n')
+            with open(args.conv_inp_f) as f:
+                conv_inp = json.load(f)
+            print_nested_dict(conv_inp, nested_level = 1)
+            print('')
+            predict(args.mdl_dir, args.xyz_dir, **conv_inp)
+        else:
+            predict(args.mdl_dir, args.xyz_dir)
         
     print('\n***************************************************************',
           '\n************************** all done! **************************',

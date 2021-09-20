@@ -32,7 +32,6 @@ from sklearn.model_selection import RepeatedKFold
 from sklearn.model_selection import cross_validate
 from tensorflow.keras.wrappers.scikit_learn import KerasRegressor
 
-from xanesnet.io import load_data_ids
 from xanesnet.io import load_xyz
 from xanesnet.io import save_xyz
 from xanesnet.io import load_xanes
@@ -42,6 +41,7 @@ from xanesnet.io import save_pipeline
 from xanesnet.dnn import check_gpu_support
 from xanesnet.dnn import set_callbacks
 from xanesnet.dnn import build_mlp
+from xanesnet.utils import load_file_stems
 from xanesnet.utils import print_cross_validation_scores
 from xanesnet.convolute import ArctanConvoluter
 from xanesnet.descriptors import RDC
@@ -127,17 +127,17 @@ def learn(
     x_path = Path(x_path)
     y_path = Path(y_path)
 
-    ids = load_data_ids(x_path, y_path)
+    file_stems = load_file_stems(x_path, y_path)
 
-    x_spooler = (x_path / (id_ + '.xyz') for id_ in ids)
+    x_spooler = (x_path / (file_stem + '.xyz') for file_stem in file_stems)
     print('>> loading X data...')
     x = [descriptor.transform(load_xyz(f)) for f in tqdm.tqdm(x_spooler)]
-    print()
+    print('')
 
-    y_spooler = (y_path / (id_ + '.txt') for id_ in ids)
+    y_spooler = (y_path / (file_stem + '.txt') for file_stem in file_stems)
     print('>> loading Y data...')
     e, y = zip(*[load_xanes(f) for f in tqdm.tqdm(y_spooler)])
-    print()
+    print('')
 
     e = np.array(e, dtype = 'float32')
     if np.allclose(e[0], e):
@@ -150,13 +150,13 @@ def learn(
     y = np.array(y, dtype = 'float32')
 
     if x.ndim == 1:
-        if len(ids) == 1:
+        if len(file_stems) == 1:
             x = x.reshape(1, -1)
         else:
             x = x.reshape(-1, 1)
  
     if save:
-        for array_name, array in {'x': x, 'y': y, 'e': e}.items():
+        for array_name, array in zip(['x', 'y', 'e'], [x, y, e]):
             with open(np_dir / f'{array_name}.npy', 'wb') as f:
                 np.save(f, array)
 
@@ -262,17 +262,17 @@ def predict(
 
     x_path = Path(x_path)  
 
-    ids = load_data_ids(x_path)
+    file_stems = load_file_stems(x_path)
 
-    x_spooler = (x_path / (id_ + '.xyz') for id_ in ids)
+    x_spooler = (x_path / (file_stem + '.xyz') for file_stem in file_stems)
     print('>> loading X data...')
     x = [descriptor.transform(load_xyz(f)) for f in tqdm.tqdm(x_spooler)]
-    print()
+    print('')
    
     x = np.array(x, dtype = 'float32')
 
     if x.ndim == 1:
-        if len(ids) == 1:
+        if len(file_stems) == 1:
             x.resize(1, -1)
         else:
             x.resize(-1, 1)
@@ -287,24 +287,24 @@ def predict(
 
     print('>> predicting Y data with neural net...')
     y_predict = pipeline.predict(x)
-    print()
+    print('')
     
     if y_predict.ndim == 1:
         y_predict = y_predict.reshape(-1, y_predict.size)
 
     print('>> saving Y data predictions...')
-    for id_, y_predict_ in tqdm.tqdm(zip(ids, y_predict)):
-        save_xanes(predict_dir / f'{id_}.txt', e, y_predict_)
-    print()
+    for file_stem, y_predict_ in tqdm.tqdm(zip(file_stems, y_predict)):
+        save_xanes(predict_dir / f'{file_stem}.txt', e, y_predict_)
+    print('')
 
     if conv_params:
         
         convoluter = ArctanConvoluter(**conv_params)
 
         print('>> convoluting and saving Y data predictions...')
-        for id_, y_predict_ in tqdm.tqdm(zip(ids, y_predict)):
+        for file_stem, y_predict_ in tqdm.tqdm(zip(file_stems, y_predict)):
             y_predict_conv_ = convoluter.convolute(e, y_predict_)
-            save_xanes(predict_dir / f'{id_}_conv.txt', e, y_predict_conv_)
-        print()
+            save_xanes(predict_dir / f'{file_stem}_conv.txt', e, y_predict_conv_)
+        print('')
         
     return 0
