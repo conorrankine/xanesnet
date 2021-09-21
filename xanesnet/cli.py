@@ -21,11 +21,13 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import sys
 import json
+import importlib.resources
 
 from argparse import ArgumentParser
 
 import xanesnet
 
+from xanesnet import resources
 from xanesnet.core import learn
 from xanesnet.core import predict
 from xanesnet.utils import print_nested_dict
@@ -78,36 +80,8 @@ def main(args: list):
     else:
         args = parse_args(args)
         
-    ver = xanesnet.__version__
-
-    print(f'\n***************************************************************',
-          f'\n***************************************************************',
-          f'\n***************************************************************',
-          f'\n********                                               ********',
-          f'\n********              | X A N E S N E T |              ********',
-          f'\n********                                               ********',
-          f'\n********                    v {ver}                    ********',
-          f'\n********                                               ********',
-          f'\n********      Software Design + Development Lead:      ********',
-          f'\n********             Dr. Conor D. Rankine              ********',
-          f'\n********                                               ********',
-          f'\n********                 Science Lead                  ********',
-          f'\n********              Dr. Tom J. Penfold               ********',
-          f'\n********                                               ********',
-          f'\n********        check out (+ cite!) this code:         ********',
-          f'\n********                                               ********',
-          f'\n********     1) J. Phys. Chem. A, 2020, 124, 4263      ********',
-          f'\n********        DOI : 10.1021/acs.jpca.0c03723         ********',
-          f'\n********                                               ********',
-          f'\n********         2) Molecules, 2020, 25, 2715          ********',
-          f'\n********        DOI : 10.3390/molecules25112715        ********',
-          f'\n********                                               ********',
-          f'\n********   3) Phys. Chem. Chem. Phys, 2021, 23, 9259   ********',
-          f'\n********           DOI : 10.1039/D0CP06244H            ********',
-          f'\n********                                               ********',
-          f'\n***************************************************************',
-          f'\n***************************************************************',
-          f'\n***************************************************************\n')
+    banner = importlib.resources.read_text(resources, 'banner_open.txt')
+    print(banner)
 
     if args.mode == 'learn':
         print(f'>> loading JSON input @ {args.inp_f}\n')
@@ -128,9 +102,8 @@ def main(args: list):
         else:
             predict(args.mdl_dir, args.xyz_dir)
         
-    print('\n***************************************************************',
-          '\n************************** all done! **************************',
-          '\n***************************************************************\n')
+    banner = importlib.resources.read_text(resources, 'banner_close.txt')
+    print(banner)
 
 ################################################################################
 ############################## PROGRAM STARTS HERE #############################

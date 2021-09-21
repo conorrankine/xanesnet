@@ -20,6 +20,9 @@ setup(
     description = 'XANES spectrum prediction using AI/ML',
     licence = 'GPL',
     packages = find_packages(),
+    package_data = {
+        'xanesnet': ['resources/*.txt']
+    },
     install_requires = [
         'tensorflow>=2.1.0',
         'numpy',
