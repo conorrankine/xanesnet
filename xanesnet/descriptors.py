@@ -212,8 +212,6 @@ class WACSF(VectorDescriptor):
 
         super().__init__(r_min, r_max)
 
-        self.g1_idx = (0, n_g1)
-
         self.use_g2 = g2_vars is not None
         if self.use_g2:
             g2_vars_ = np.array(g2_vars, dtype = 'float32')
