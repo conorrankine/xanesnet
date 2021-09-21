@@ -80,6 +80,8 @@ def print_nested_dict(dict_: dict, nested_level: int = 0):
 
     for key, val in dict_.items():
         if not isinstance(val, dict):
+            if isinstance(val, list):
+                val = f'[{val[0]}, ..., {val[-1]}]'
             print('  ' * nested_level + f'>> {key} :: {val}')
         else:
             print('  ' * nested_level + f'>> {key}')
