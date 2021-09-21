@@ -55,6 +55,24 @@ def load_file_stems(*dirs: Path, verbose: bool = True) -> np.ndarray:
     
     return file_stems
 
+def sample_arrays(*arrs: np.ndarray, max_samples: int = None) -> tuple:
+    # randomly samples N samples (`n_samples`) synchronously according to a
+    # uniform distribution from the supplied np.ndarrays (`*arrs`) and returns
+    # the sampled np.ndarrays; uses replacement (i.e. supersamples) if
+    # max_samples > the length of the np.ndarrays, otherwise does not use
+    # replacement (i.e. subsamples); if n_samples is None, returns the original
+    # np.ndarrays unchanged
+
+    if not max_samples:
+        arrs = tuple(arr for arr in arrs)
+    else:
+        rng = np.random.default_rng()
+        choice = rng.choice(len(arrs[0]), max_samples, 
+            replace = len(arrs[0]) < max_samples)
+        arrs = tuple(arr[choice] for arr in arrs)      
+
+    return arrs
+
 def print_nested_dict(dict_: dict, nested_level: int = 0):
     # prints the key:value pairs in a dictionary (`dict`) in the format
     # '>> key :: value'; iterates recursively through any subdictionaries,

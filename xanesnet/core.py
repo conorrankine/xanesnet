@@ -42,6 +42,7 @@ from xanesnet.dnn import check_gpu_support
 from xanesnet.dnn import set_callbacks
 from xanesnet.dnn import build_mlp
 from xanesnet.utils import load_file_stems
+from xanesnet.utils import sample_arrays
 from xanesnet.utils import print_cross_validation_scores
 from xanesnet.convolute import ArctanConvoluter
 from xanesnet.descriptors import RDC
@@ -58,6 +59,7 @@ def learn(
     descriptor_params: dict = {},
     kfold_params: dict = {},
     hyperparams: dict = {},
+    max_samples: int = None,
     epochs: int = 100,
     callbacks: dict = {},
     save: bool = True,
@@ -88,6 +90,10 @@ def learn(
         hyperparams (dict, optional): A dictionary of hyperparameter
             definitions used to configure a Sequential Keras neural network.
             Defaults to {}.
+        max_samples (int, optional): The maximum number of samples to select
+            from the X/Y data; the samples are chosen according to a uniform
+            distribution from the full X/Y dataset.
+            Defaults to None.
         epochs (int, optional): The maximum number of epochs/cycles.
             Defaults to 100.
         callbacks (dict, optional): A dictionary of keyword arguments passed
@@ -159,6 +165,11 @@ def learn(
         for array_name, array in zip(['x', 'y', 'e'], [x, y, e]):
             with open(np_dir / f'{array_name}.npy', 'wb') as f:
                 np.save(f, array)
+
+    if max_samples:
+        print(f'>> sampling X/Y data (sample size: {len(x)} -> {max_samples})')
+        x, y = sample_arrays(x, y, max_samples = max_samples)
+        print('')
 
     net = KerasRegressor(
         build_fn = build_mlp, 
