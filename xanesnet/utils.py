@@ -55,7 +55,11 @@ def load_file_stems(*dirs: Path, verbose: bool = True) -> np.ndarray:
     
     return file_stems
 
-def sample_arrays(*arrs: np.ndarray, max_samples: int = None) -> tuple:
+def sample_arrays(
+    *arrs: np.ndarray,
+    max_samples: int = None,
+    random_state: np.random.RandomState = None
+) -> tuple:
     # randomly samples N samples (`n_samples`) synchronously according to a
     # uniform distribution from the supplied np.ndarrays (`*arrs`) and returns
     # the sampled np.ndarrays; uses replacement (i.e. supersamples) if
@@ -66,8 +70,7 @@ def sample_arrays(*arrs: np.ndarray, max_samples: int = None) -> tuple:
     if not max_samples:
         arrs = tuple(arr for arr in arrs)
     else:
-        rng = np.random.default_rng()
-        choice = rng.choice(len(arrs[0]), max_samples, 
+        choice = random_state.choice(len(arrs[0]), max_samples, 
             replace = len(arrs[0]) < max_samples)
         arrs = tuple(arr[choice] for arr in arrs)      
 

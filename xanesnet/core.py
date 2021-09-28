@@ -62,6 +62,7 @@ def learn(
     max_samples: int = None,
     epochs: int = 100,
     callbacks: dict = {},
+    seed: int = None,
     save: bool = True,
     **kwargs
 ):
@@ -101,6 +102,10 @@ def learn(
             expected to be dictionary of arguments for the defined callback,
             e.g. "earlystopping": {"patience": 10, "verbose": 1}
             Defaults to {}.
+        seed (int, optional): A random seed used to initialise a Numpy
+            RandomState random number generator; set the seed explicitly for
+            reproducible results over repeated calls to the `learn` routine.
+            Defaults to None.
         save (bool, optional): If True, a model directory (containing data,
             serialised scaling/pipeline objects, the serialised neural net,
             and neural net fragments and logs) is created in the current
@@ -108,6 +113,8 @@ def learn(
             at a later time in the `predict` routine.
             Defaults to True.
     """
+
+    rng = np.random.RandomState(seed = seed)
 
     if save:
         model_dir = Path(f'./model.{int(time.time())}')
@@ -168,7 +175,7 @@ def learn(
 
     if max_samples:
         print(f'>> sampling X/Y data (sample size: {len(x)} -> {max_samples})')
-        x, y = sample_arrays(x, y, max_samples = max_samples)
+        x, y = sample_arrays(x, y, max_samples = max_samples, random_state = rng)
         print('')
 
     net = KerasRegressor(
@@ -178,6 +185,7 @@ def learn(
         **hyperparams,
         callbacks = set_callbacks(**callbacks),
         epochs = epochs,
+        random_state = rng,
         verbose = 2
     )
 
@@ -185,8 +193,7 @@ def learn(
 
     if kfold_params:
 
-        kfold_spooler = (RepeatedKFold(**kfold_params) 
-            if 'n_repeats' in kfold_params else KFold(**kfold_params))
+        kfold_spooler = RepeatedKFold(**kfold_params, random_state = rng)
 
         check_gpu_support()
 

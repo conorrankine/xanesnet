@@ -41,14 +41,13 @@ def check_gpu_support():
 
     dev_type = 'GPU' if tf.config.list_physical_devices('GPU') else 'CPU'
 
-    str_ = '>> detecting GPU/nVidia CUDA acceleration support: {}\n'
+    str_ = '>> detecting GPU/nVidia CUDA acceleration support: {}'
     print(str_.format('supported' if dev_type == 'GPU' else 'unsupported'))
 
     print(f'>> listing available {dev_type} devices:')
     for device in tf.config.list_physical_devices(dev_type):
-        print(f'>> {device[0]}') 
-
-    print()
+        print(f'  >> {device[0]}') 
+    print('')
 
     return 0
 
@@ -83,7 +82,7 @@ def build_mlp(
     dropout: float = 0.2,
     kernel_init: str = 'he_uniform',
     bias_init: str = 'zeros',
-    **kwargs
+    random_state: np.random.RandomState = None
 ) -> Sequential:
     # returns a tensorflow.keras.models.Sequential neural network with the deep
     # multilayer perceptron (MLP) model; the MLP has an input layer of 
@@ -91,6 +90,9 @@ def build_mlp(
     # [n_hl] hidden layers between the input and output layers, the first
     # hidden layer has [hl_ini_dim] neurons, and each successive hidden layer 
     # is reduced in size by a factor of [hl_shrink]
+
+    if random_state:
+        tf.random.set_seed(random_state.randint(2**16))
 
     net = Sequential()
     
