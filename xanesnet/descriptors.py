@@ -82,6 +82,15 @@ class VectorDescriptor(ABC):
         
         pass 
 
+    @abstractmethod
+    def get_len(self) -> int:
+        """
+        Returns:
+            int: Length of the vector descriptor.
+        """
+
+        pass
+
 class RDC(VectorDescriptor):
     """
     A class for transforming a molecular system into a radial (or 'pair')
@@ -133,17 +142,6 @@ class RDC(VectorDescriptor):
         self, 
         system: Atoms
     ) -> np.ndarray:
-        """
-        Transforms a molecular system into an RDC descriptor that encodes
-        the local environment around an absorption site; the absorption site
-        has to be the first atom defined for the molecular system.
-
-        Args:
-            system (Atoms): A molecular system.
-
-        Returns:
-            np.ndarray: An RDC descriptor for the molecular system.
-        """
         
         if not isinstance(system, Atoms):
             raise TypeError(f'systems passed as arguments to .transform ',
@@ -168,6 +166,10 @@ class RDC(VectorDescriptor):
         rdc = np.sum((zi * zj)[:, np.newaxis] * exp, axis = 0)
 
         return rdc
+
+    def get_len(self) -> int:
+        
+        return len(self.r_aux)
 
 class WACSF(VectorDescriptor):
     """
@@ -215,20 +217,26 @@ class WACSF(VectorDescriptor):
         self.use_g2 = g2_vars is not None
         if self.use_g2:
             g2_vars_ = np.array(g2_vars, dtype = 'float32')
+            self.n_g2 = len(g2_vars_)
             try:
                 self.g2_h, self.g2_m = g2_vars_.T
             except ValueError:
                 raise ValueError(f'g2_vars is not formatted properly; ',
                     'expected [[h1,m1],[h2,m2],...,[hn,mn]]')
+        else:
+            self.n_g2 = 0
 
         self.use_g4 = g4_vars is not None
         if self.use_g4:
             g4_vars_ = np.array(g4_vars, dtype = 'float32')
+            self.n_g4 = len(g4_vars_)
             try:
                 self.g4_h, self.g4_m, self.g4_l, self.g4_z = g4_vars_.T
             except ValueError:
                 raise ValueError(f'g4_vars is not formatted properly; ',
                     'expected [[h1,m1,l1,z1],[h2,m2,l2,z2],...,[hn,mn,ln,zn]]')
+        else:
+            self.n_g4 = 0
 
         if isinstance(with_weighting, bool):
             self.with_weighting = with_weighting
@@ -240,17 +248,6 @@ class WACSF(VectorDescriptor):
         self, 
         system: Atoms
     ) -> np.ndarray:
-        """
-        Transforms a molecular system into a WACSF descriptor that encodes the
-        local environment around an absorption site; the absorption site has
-        to be the first atom defined for the molecular system.
-
-        Args:
-            system (Atoms): A molecular system.
-
-        Returns:
-            np.ndarray: A WACSF descriptor for the molecular system.
-        """
 
         if not isinstance(system, Atoms):
             raise TypeError(f'systems passed as arguments to .transform ',
@@ -342,3 +339,7 @@ class WACSF(VectorDescriptor):
         ) * np.power(2.0, 1.0 - self.g4_z)
 
         return g4
+
+    def get_len(self) -> int:
+
+        return 1 + self.n_g2 + self.n_g4
