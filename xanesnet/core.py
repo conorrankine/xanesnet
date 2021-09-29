@@ -155,9 +155,8 @@ def learn(
     print('')
 
     if save:
-        for array_name, array in zip(['x', 'y', 'e'], [x, y, e]):
-            with open(model_dir / f'{array_name}.npy', 'wb') as f:
-                np.save(f, array)
+        with open(model_dir / 'dataset.npz', 'wb') as f:
+            np.savez_compressed(f, x = x, y = y, e = e)
 
     if max_samples:
         print(f'>> sampling X/Y data (sample size: {len(x)} -> {max_samples})')
@@ -272,9 +271,6 @@ def predict(
     
     print('')
 
-    with open(model_dir / 'e.npy', 'rb') as f:
-        e = np.load(f)
-
     pipeline = load_pipeline(
         model_dir / 'net.keras',
         model_dir / 'pipeline.pickle'
@@ -286,6 +282,9 @@ def predict(
     
     if y_predict.ndim == 1:
         y_predict = y_predict.reshape(-1, y_predict.size)
+
+    with open(model_dir / 'dataset.npz', 'rb') as f:
+        e = np.load(f)['e']
 
     print('>> saving Y data predictions...')
     for file_stem, y_predict_ in tqdm.tqdm(zip(file_stems, y_predict)):
