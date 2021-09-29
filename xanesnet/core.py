@@ -41,6 +41,7 @@ from xanesnet.dnn import check_gpu_support
 from xanesnet.dnn import set_callbacks
 from xanesnet.dnn import build_mlp
 from xanesnet.utils import unique_path
+from xanesnet.utils import linecount
 from xanesnet.utils import load_file_stems
 from xanesnet.utils import sample_arrays
 from xanesnet.utils import print_cross_validation_scores
@@ -134,33 +135,25 @@ def learn(
     y_path = Path(y_path)
 
     file_stems = load_file_stems(x_path, y_path)
+    
+    n_file_stems = len(file_stems)
+    n_x_features = descriptor.get_len()
+    n_y_features = linecount(y_path / (file_stems[0] + '.txt')) - 2
 
-    x_spooler = (x_path / (file_stem + '.xyz') for file_stem in file_stems)
-    print('>> loading X data...')
-    x = [descriptor.transform(load_xyz(f)) for f in tqdm.tqdm(x_spooler)]
+    x = np.full((n_file_stems, n_x_features), np.nan)
+    print('>> preallocated {}x{} array for X data...'.format(*x.shape))
+    y = np.full((n_file_stems, n_y_features), np.nan)
+    print('>> preallocated {}x{} array for Y data...'.format(*y.shape))
+
     print('')
 
-    y_spooler = (y_path / (file_stem + '.txt') for file_stem in file_stems)
-    print('>> loading Y data...')
-    e, y = zip(*[load_xanes(f) for f in tqdm.tqdm(y_spooler)])
+    print('>> loading data into array(s)...')
+    for i, file_stem in enumerate(tqdm.tqdm(file_stems)):
+        x[i,:] = descriptor.transform(load_xyz(x_path / (file_stem + '.xyz')))
+        e, y[i,:] = load_xanes(y_path / (file_stem + '.txt'))
+    
     print('')
 
-    e = np.array(e, dtype = 'float32')
-    if np.allclose(e[0], e):
-        e = e[0]
-    else:
-        raise ValueError('Y data are not defined over a common energy ',
-            'window; check .txt FDMNES output files for consistency')
-
-    x = np.array(x, dtype = 'float32')
-    y = np.array(y, dtype = 'float32')
-
-    if x.ndim == 1:
-        if len(file_stems) == 1:
-            x = x.reshape(1, -1)
-        else:
-            x = x.reshape(-1, 1)
- 
     if save:
         for array_name, array in zip(['x', 'y', 'e'], [x, y, e]):
             with open(model_dir / f'{array_name}.npy', 'wb') as f:
@@ -265,18 +258,19 @@ def predict(
 
     file_stems = load_file_stems(x_path)
 
-    x_spooler = (x_path / (file_stem + '.xyz') for file_stem in file_stems)
-    print('>> loading X data...')
-    x = [descriptor.transform(load_xyz(f)) for f in tqdm.tqdm(x_spooler)]
-    print('')
-   
-    x = np.array(x, dtype = 'float32')
+    n_file_stems = len(file_stems)
+    n_x_features = descriptor.get_len()
 
-    if x.ndim == 1:
-        if len(file_stems) == 1:
-            x.resize(1, -1)
-        else:
-            x.resize(-1, 1)
+    x = np.full((n_file_stems, n_x_features), np.nan)
+    print('>> preallocated {}x{} array for X data...'.format(*x.shape))
+
+    print('')
+
+    print('>> loading data into array(s)...')
+    for i, file_stem in enumerate(tqdm.tqdm(file_stems)):
+        x[i,:] = descriptor.transform(load_xyz(x_path / (file_stem + '.xyz')))
+    
+    print('')
 
     with open(model_dir / 'e.npy', 'rb') as f:
         e = np.load(f)

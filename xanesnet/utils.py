@@ -38,6 +38,12 @@ def unique_path(path: Path, base_name: str) -> Path:
         if not unique_path.exists():
             return unique_path
 
+def linecount(f: Path) -> int:
+    # returns the linecount for a file (`f`)
+
+    with open(f, 'r') as f_:
+        return len([l for l in f_])
+
 def load_file_stems(*dirs: Path, verbose: bool = True) -> np.ndarray:
     # returns a single sorted np.ndarray (dtype: string) of file stems *if* 
     # the sorted lists of file stems are the same for all supplied directories
