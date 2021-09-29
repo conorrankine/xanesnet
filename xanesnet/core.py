@@ -22,7 +22,6 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 import numpy as np
 import pickle as pickle
 import tqdm as tqdm
-import time as time
 
 from pathlib import Path
 from sklearn.pipeline import Pipeline
@@ -41,6 +40,7 @@ from xanesnet.io import save_pipeline
 from xanesnet.dnn import check_gpu_support
 from xanesnet.dnn import set_callbacks
 from xanesnet.dnn import build_mlp
+from xanesnet.utils import unique_path
 from xanesnet.utils import load_file_stems
 from xanesnet.utils import sample_arrays
 from xanesnet.utils import print_cross_validation_scores
@@ -107,23 +107,16 @@ def learn(
             reproducible results over repeated calls to the `learn` routine.
             Defaults to None.
         save (bool, optional): If True, a model directory (containing data,
-            serialised scaling/pipeline objects, the serialised neural net,
-            and neural net fragments and logs) is created in the current
-            working directory; this is required to restore the neural net state
-            at a later time in the `predict` routine.
+            serialised scaling/pipeline objects, and the serialised model)
+            is created; this is required to restore the model state later.
             Defaults to True.
     """
 
     rng = np.random.RandomState(seed = seed)
 
     if save:
-        model_dir = Path(f'./model.{int(time.time())}')
-        obj_dir = model_dir / 'objects'
-        np_dir = obj_dir / 'np'
-        tf_dir = obj_dir / 'tf'
-        sk_dir = obj_dir / 'sk'
-        for d in (model_dir, obj_dir, np_dir, tf_dir, sk_dir):
-            d.mkdir()
+        model_dir = unique_path(Path('.'), 'model')
+        model_dir.mkdir()
 
     if descriptor_type.lower() == 'rdc':
         descriptor = RDC(**descriptor_params)
@@ -134,7 +127,7 @@ def learn(
             'got {descriptor_type}')
 
     if save:
-        with open(sk_dir / 'descriptor.pickle', 'wb') as f:
+        with open(model_dir / 'descriptor.pickle', 'wb') as f:
             pickle.dump(descriptor, f)    
 
     x_path = Path(x_path)
@@ -170,7 +163,7 @@ def learn(
  
     if save:
         for array_name, array in zip(['x', 'y', 'e'], [x, y, e]):
-            with open(np_dir / f'{array_name}.npy', 'wb') as f:
+            with open(model_dir / f'{array_name}.npy', 'wb') as f:
                 np.save(f, array)
 
     if max_samples:
@@ -212,9 +205,10 @@ def learn(
 
         if save:
             for kfold, pipeline in enumerate(kfold_output['estimator']):
+                kfold_dir = unique_path(model_dir, 'kfold')
                 save_pipeline(
-                    tf_dir / f'net_{kfold:02d}.keras', 
-                    sk_dir / f'pipeline_{kfold:02d}.pickle',
+                    kfold_dir / 'net.keras', 
+                    kfold_dir / 'pipeline.pickle',
                     pipeline
                 )
 
@@ -227,8 +221,8 @@ def learn(
 
         if save:
             save_pipeline(
-                tf_dir / f'net.keras', 
-                sk_dir / f'pipeline.pickle',
+                model_dir / f'net.keras', 
+                model_dir / f'pipeline.pickle',
                 pipeline
             )
     
@@ -241,17 +235,11 @@ def predict(
     **kwargs
 ):
     """
-    PREDICT. A preprocessing pipeline and neural network are restored from a
-    model.[?] directory created by the LEARN routine. The .xyz (X) data are
-    loaded and transformed (via the preprocessing pipeline); the neural
-    network is used to predict the corresponding XANES spectral (Y) data.
-    Convolution (see xanesnet/convolute.py) of the XANES spectral data is
-    possible if {conv_params} are provided.
-    This function creates a predict.[?] directory in the current workspace:
-
-    > predict.[?]
-      ~ n [?].txt (predicted XANES spectral data)
-      ~ n [?]_conv.txt (predicted XANES spectral data post-convolution)
+    PREDICT. The model state is restored from a model directory containing
+    serialised scaling/pipeline objects and the serialised model, .xyz (X)
+    data are loaded and transformed, and the model is used to predict XANES
+    spectral (Y) data; convolution of the Y data is also possible if
+    {conv_params} are provided (see xanesnet/convolute.py).
 
     Args:
         model_dir (str): The path to a model.[?] directory created by
@@ -265,17 +253,12 @@ def predict(
             Defaults to {}.
     """
 
-    predict_dir = Path(f'./predict.{int(time.time())}')
-    
+    predict_dir = unique_path(Path('.'), 'predictions')
     predict_dir.mkdir()
 
     model_dir = Path(model_dir)
-    obj_dir = model_dir / 'objects'
-    np_dir = obj_dir / 'np'
-    tf_dir = obj_dir / 'tf'
-    sk_dir = obj_dir / 'sk'
 
-    with open(sk_dir / 'descriptor.pickle', 'rb') as f:
+    with open(model_dir / 'descriptor.pickle', 'rb') as f:
         descriptor = pickle.load(f)
 
     x_path = Path(x_path)  
@@ -295,12 +278,12 @@ def predict(
         else:
             x.resize(-1, 1)
 
-    with open(np_dir / 'e.npy', 'rb') as f:
+    with open(model_dir / 'e.npy', 'rb') as f:
         e = np.load(f)
 
     pipeline = load_pipeline(
-        tf_dir / 'net.keras',
-        sk_dir / 'pipeline.pickle'
+        model_dir / 'net.keras',
+        model_dir / 'pipeline.pickle'
     )
 
     print('>> predicting Y data with neural net...')

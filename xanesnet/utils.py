@@ -27,6 +27,17 @@ from pathlib import Path
 ################################## FUNCTIONS ##################################
 ###############################################################################
 
+def unique_path(path: Path, base_name: str) -> Path:
+    # returns a unique path from `p`/`base_name`_001, `p`/`base_name`_002,
+    # `p`/`base_name`_003, etc.
+
+    n = 0
+    while True:
+        n += 1
+        unique_path = path / (base_name + f'_{n:03d}')
+        if not unique_path.exists():
+            return unique_path
+
 def load_file_stems(*dirs: Path, verbose: bool = True) -> np.ndarray:
     # returns a single sorted np.ndarray (dtype: string) of file stems *if* 
     # the sorted lists of file stems are the same for all supplied directories
