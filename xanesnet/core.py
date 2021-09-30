@@ -46,6 +46,7 @@ from xanesnet.utils import unique_path
 from xanesnet.utils import linecount
 from xanesnet.utils import list_filestems
 from xanesnet.utils import print_cross_validation_scores
+from xanesnet.normalise import norm_xanes
 from xanesnet.convolute import ArctanConvoluter
 from xanesnet.descriptors import RDC
 from xanesnet.descriptors import WACSF
@@ -133,6 +134,8 @@ def learn(
 
     x = np.full((n_samples, n_x_features), np.nan)
     print('>> preallocated {}x{} array for X data...'.format(*x.shape))
+    #y_pn is the xanes spectra pre-normalised. y is used in the code.
+    y_pn = np.full((n_samples, n_y_features), np.nan)
     y = np.full((n_samples, n_y_features), np.nan)
     print('>> preallocated {}x{} array for Y data...'.format(*y.shape))
     print('>> ...everything preallocated!\n')
@@ -142,8 +145,9 @@ def learn(
         x[i,:] = descriptor.transform(
             load_xyz(x_path / f'{sample_id}.xyz')
         )
-        e, y[i,:] = load_xanes(y_path / f'{sample_id}.txt')
-    print('>> ...loaded into array(s)!\n')
+        e, y_pn[i,:] = load_xanes(y_path / f'{sample_id}.txt')
+        y[i,:] = norm_xanes(y_pn[i,:])
+    print('>> ...loaded into array(s) and normalised!\n')
 
     if save:
         model_dir = unique_path(Path('.'), 'model')

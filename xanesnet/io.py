@@ -70,9 +70,6 @@ def load_xanes(xanes_f: Path) -> (np.ndarray, np.ndarray):
     # absorption intensities
     m = np.array([l[1] for l in xanes_f_l[2:]], dtype = 'float32')
 
-    # TODO: move absorption intensity scaling out of this function
-    m /= m[-1]
-
     return e, m
 
 def save_xanes(xanes_f: Path, e: np.ndarray, m: np.ndarray):
