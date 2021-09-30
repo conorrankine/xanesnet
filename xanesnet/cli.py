@@ -81,7 +81,7 @@ def main(args: list):
         args = parse_args(args)
         
     banner = importlib.resources.read_text(resources, 'banner_open.txt')
-    print(banner)
+    print(banner, '\n')
 
     if args.mode == 'learn':
         print(f'>> loading JSON input @ {args.inp_f}\n')

@@ -24,11 +24,13 @@ import pickle as pickle
 import tqdm as tqdm
 
 from pathlib import Path
+from numpy.random import RandomState
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import KFold
 from sklearn.model_selection import RepeatedKFold
 from sklearn.model_selection import cross_validate
+from sklearn.utils import shuffle
 from tensorflow.keras.wrappers.scikit_learn import KerasRegressor
 
 from xanesnet.io import load_xyz
@@ -42,8 +44,7 @@ from xanesnet.dnn import set_callbacks
 from xanesnet.dnn import build_mlp
 from xanesnet.utils import unique_path
 from xanesnet.utils import linecount
-from xanesnet.utils import load_file_stems
-from xanesnet.utils import sample_arrays
+from xanesnet.utils import list_filestems
 from xanesnet.utils import print_cross_validation_scores
 from xanesnet.convolute import ArctanConvoluter
 from xanesnet.descriptors import RDC
@@ -65,7 +66,6 @@ def learn(
     callbacks: dict = {},
     seed: int = None,
     save: bool = True,
-    **kwargs
 ):
     """
     LEARN. The .xyz (X) and XANES spectral (Y) data are loaded and transformed;
@@ -113,55 +113,49 @@ def learn(
             Defaults to True.
     """
 
-    rng = np.random.RandomState(seed = seed)
-
-    if save:
-        model_dir = unique_path(Path('.'), 'model')
-        model_dir.mkdir()
-
-    if descriptor_type.lower() == 'rdc':
-        descriptor = RDC(**descriptor_params)
-    elif descriptor_type.lower() == 'wacsf':
-        descriptor = WACSF(**descriptor_params)
-    else:
-        raise ValueError(f'descriptor type not recognised; ',
-            'got {descriptor_type}')
-
-    if save:
-        with open(model_dir / 'descriptor.pickle', 'wb') as f:
-            pickle.dump(descriptor, f)    
+    rng = RandomState(seed = seed)
 
     x_path = Path(x_path)
     y_path = Path(y_path)
 
-    file_stems = load_file_stems(x_path, y_path)
-    
-    n_file_stems = len(file_stems)
+    sample_ids = list(
+        set(list_filestems(x_path)) & set(list_filestems(y_path))
+    )
+
+    sample_ids.sort()
+
+    descriptors = {'rdc': RDC, 'wacsf': WACSF}
+    descriptor = descriptors[descriptor_type](**descriptor_params)
+
+    n_samples = len(sample_ids)
     n_x_features = descriptor.get_len()
-    n_y_features = linecount(y_path / (file_stems[0] + '.txt')) - 2
+    n_y_features = linecount(y_path / f'{sample_ids[0]}.txt') - 2
 
-    x = np.full((n_file_stems, n_x_features), np.nan)
+    x = np.full((n_samples, n_x_features), np.nan)
     print('>> preallocated {}x{} array for X data...'.format(*x.shape))
-    y = np.full((n_file_stems, n_y_features), np.nan)
+    y = np.full((n_samples, n_y_features), np.nan)
     print('>> preallocated {}x{} array for Y data...'.format(*y.shape))
-
-    print('')
+    print('>> ...everything preallocated!\n')
 
     print('>> loading data into array(s)...')
-    for i, file_stem in enumerate(tqdm.tqdm(file_stems)):
-        x[i,:] = descriptor.transform(load_xyz(x_path / (file_stem + '.xyz')))
-        e, y[i,:] = load_xanes(y_path / (file_stem + '.txt'))
-    
-    print('')
+    for i, sample_id in enumerate(tqdm.tqdm(sample_ids)):
+        x[i,:] = descriptor.transform(
+            load_xyz(x_path / f'{sample_id}.xyz')
+        )
+        e, y[i,:] = load_xanes(y_path / f'{sample_id}.txt')
+    print('>> ...loaded into array(s)!\n')
 
     if save:
+        model_dir = unique_path(Path('.'), 'model')
+        model_dir.mkdir()
+        with open(model_dir / 'descriptor.pickle', 'wb') as f:
+            pickle.dump(descriptor, f)
         with open(model_dir / 'dataset.npz', 'wb') as f:
             np.savez_compressed(f, x = x, y = y, e = e)
 
-    if max_samples:
-        print(f'>> sampling X/Y data (sample size: {len(x)} -> {max_samples})')
-        x, y = sample_arrays(x, y, max_samples = max_samples, random_state = rng)
-        print('')
+    print('>> shuffling and selecting data...')
+    shuffle(x, y, random_state = rng, n_samples = max_samples)
+    print('>> ...shuffled and selected!\n')
 
     net = KerasRegressor(
         build_fn = build_mlp, 
@@ -174,15 +168,19 @@ def learn(
         verbose = 2
     )
 
+    print('>> setting up preprocessing pipeline...')
     pipeline = Pipeline([('scaler', StandardScaler()), ('net', net)])
+    for i, step in enumerate(pipeline.get_params()['steps']):
+        print(f'  >> {i + 1}. ' + '{} :: {}'.format(*step))
+    print('>> ...set up!\n')
+
+    check_gpu_support()
 
     if kfold_params:
 
         kfold_spooler = RepeatedKFold(**kfold_params, random_state = rng)
 
-        check_gpu_support()
-
-        print('>> fitting neural net...\n')
+        print('>> fitting neural net...')
         kfold_output = cross_validate(
             pipeline, 
             x, 
@@ -192,24 +190,24 @@ def learn(
             return_estimator = True, 
             verbose = kfold_spooler.get_n_splits()
         )
+        print('...neural net fit!\n')
 
         print_cross_validation_scores(kfold_output)
 
         if save:
-            for kfold, pipeline in enumerate(kfold_output['estimator']):
+            for kfold_pipeline in kfold_output['estimator']:
                 kfold_dir = unique_path(model_dir, 'kfold')
                 save_pipeline(
                     kfold_dir / 'net.keras', 
                     kfold_dir / 'pipeline.pickle',
-                    pipeline
+                    kfold_pipeline
                 )
 
     else:
 
-        check_gpu_support()
-
-        print('>> fitting neural net...\n')
+        print('>> fitting neural net...')
         pipeline.fit(x, y)
+        print('>> ...neural net fit!\n')
 
         if save:
             save_pipeline(
@@ -224,7 +222,6 @@ def predict(
     model_dir: str,
     x_path: str,
     conv_params: dict = {},
-    **kwargs
 ):
     """
     PREDICT. The model state is restored from a model directory containing
@@ -245,31 +242,28 @@ def predict(
             Defaults to {}.
     """
 
-    predict_dir = unique_path(Path('.'), 'predictions')
-    predict_dir.mkdir()
-
     model_dir = Path(model_dir)
+
+    x_path = Path(x_path)
+
+    sample_ids = list_filestems(x_path)
 
     with open(model_dir / 'descriptor.pickle', 'rb') as f:
         descriptor = pickle.load(f)
 
-    x_path = Path(x_path)  
-
-    file_stems = load_file_stems(x_path)
-
-    n_file_stems = len(file_stems)
+    n_samples = len(sample_ids)
     n_x_features = descriptor.get_len()
 
-    x = np.full((n_file_stems, n_x_features), np.nan)
+    x = np.full((n_samples, n_x_features), np.nan)
     print('>> preallocated {}x{} array for X data...'.format(*x.shape))
-
-    print('')
+    print('>> ...everything preallocated!\n')
 
     print('>> loading data into array(s)...')
-    for i, file_stem in enumerate(tqdm.tqdm(file_stems)):
-        x[i,:] = descriptor.transform(load_xyz(x_path / (file_stem + '.xyz')))
-    
-    print('')
+    for i, sample_id in enumerate(tqdm.tqdm(sample_ids)):
+        x[i,:] = descriptor.transform(
+            load_xyz(x_path / f'{sample_id}.xyz')
+        )
+    print('>> ...loaded!\n')
 
     pipeline = load_pipeline(
         model_dir / 'net.keras',
@@ -278,27 +272,30 @@ def predict(
 
     print('>> predicting Y data with neural net...')
     y_predict = pipeline.predict(x)
-    print('')
-    
     if y_predict.ndim == 1:
         y_predict = y_predict.reshape(-1, y_predict.size)
+    print('>> ...predicted Y data!\n')
+
+    predict_dir = unique_path(Path('.'), 'predictions')
+    predict_dir.mkdir()
 
     with open(model_dir / 'dataset.npz', 'rb') as f:
         e = np.load(f)['e']
 
     print('>> saving Y data predictions...')
-    for file_stem, y_predict_ in tqdm.tqdm(zip(file_stems, y_predict)):
-        save_xanes(predict_dir / f'{file_stem}.txt', e, y_predict_)
-    print('')
+    for sample_id, y_predict_ in tqdm.tqdm(zip(sample_ids, y_predict)):
+        save_path = predict_dir / f'{sample_id}.txt'
+        save_xanes(save_path, e, y_predict_)
+    print('...saved!\n')
 
     if conv_params:
         
         convoluter = ArctanConvoluter(**conv_params)
 
-        print('>> convoluting and saving Y data predictions...')
-        for file_stem, y_predict_ in tqdm.tqdm(zip(file_stems, y_predict)):
-            y_predict_conv_ = convoluter.convolute(e, y_predict_)
-            save_xanes(predict_dir / f'{file_stem}_conv.txt', e, y_predict_conv_)
-        print('')
+        print('>> saving convoluted Y data predictions...')
+        for sample_id, y_predict_ in tqdm.tqdm(zip(sample_ids, y_predict)):
+            save_path = predict_dir / f'{sample_id}_conv.txt'
+            save_xanes(save_path, e, convoluter.convolute(e, y_predict_))
+        print('...saved!\n')
         
     return 0

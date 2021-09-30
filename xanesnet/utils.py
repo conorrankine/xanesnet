@@ -44,54 +44,19 @@ def linecount(f: Path) -> int:
     with open(f, 'r') as f_:
         return len([l for l in f_])
 
-def load_file_stems(*dirs: Path, verbose: bool = True) -> np.ndarray:
-    # returns a single sorted np.ndarray (dtype: string) of file stems *if* 
-    # the sorted lists of file stems are the same for all supplied directories
-    # (`*dirs`) *and* the supplied directories are not empty, otherwise raises
-    # a value error; prints out the supplied directory paths and the number of
-    # file stems in the np.ndarray if `verbose` is True
+def list_files(d: Path, with_ext: bool = True) -> list:
+    # returns a list of files (as POSIX paths) found in a directory (`d`);
+    # 'hidden' files are always omitted and, if with_ext == False, file
+    # extensions are also omitted
 
-    if verbose:
-        print('>> loading file stems from the supplied source(s):')   
-        for i, d in enumerate(dirs): print(f'  >> {i + 1}. {d}')
+    return [(f if with_ext else f.with_suffix('')) 
+        for f in d.iterdir() if f.is_file() and not f.stem.startswith('.')]
 
-    file_stems = [sorted([f.stem for f in d.iterdir() if (f.is_file()
-        and not f.stem.startswith('.'))]) for d in dirs]
+def list_filestems(d: Path) -> list:
+    # returns a list of file stems (as strings) found in a directory (`d`);
+    # 'hidden' files are always omitted
 
-    if file_stems.count(file_stems[0]) != len(file_stems):
-        raise ValueError('supplied source(s) don\'t have matching sorted '
-            'lists of file stems; does every sample in one source have a '
-            'corresponding sample in another with the same file stem?')
-    elif len(file_stems[0]) == 0:
-        raise ValueError('supplied source(s) are empty')
-    
-    file_stems = np.array(file_stems[0], dtype = 'str')
-
-    if verbose:
-        print(f'>> loaded {len(file_stems)} file stems\n')
-    
-    return file_stems
-
-def sample_arrays(
-    *arrs: np.ndarray,
-    max_samples: int = None,
-    random_state: np.random.RandomState = None
-) -> tuple:
-    # randomly samples N samples (`n_samples`) synchronously according to a
-    # uniform distribution from the supplied np.ndarrays (`*arrs`) and returns
-    # the sampled np.ndarrays; uses replacement (i.e. supersamples) if
-    # max_samples > the length of the np.ndarrays, otherwise does not use
-    # replacement (i.e. subsamples); if n_samples is None, returns the original
-    # np.ndarrays unchanged
-
-    if not max_samples:
-        arrs = tuple(arr for arr in arrs)
-    else:
-        choice = random_state.choice(len(arrs[0]), max_samples, 
-            replace = len(arrs[0]) < max_samples)
-        arrs = tuple(arr[choice] for arr in arrs)      
-
-    return arrs
+    return [f.stem for f in list_files(d)]
 
 def print_nested_dict(dict_: dict, nested_level: int = 0):
     # prints the key:value pairs in a dictionary (`dict`) in the format

@@ -22,6 +22,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 import numpy as np
 import tensorflow as tf
 
+#from numpy.random import RandomState
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import Dense
@@ -45,8 +46,8 @@ def check_gpu_support():
     print(str_.format('supported' if dev_type == 'GPU' else 'unsupported'))
 
     print(f'>> listing available {dev_type} devices:')
-    for device in tf.config.list_physical_devices(dev_type):
-        print(f'  >> {device[0]}') 
+    for i, device in enumerate(tf.config.list_physical_devices(dev_type)):
+        print(f'  >> {i + 1}. {device[0]}') 
     print('')
 
     return 0
@@ -91,8 +92,10 @@ def build_mlp(
     # hidden layer has [hl_ini_dim] neurons, and each successive hidden layer 
     # is reduced in size by a factor of [hl_shrink]
 
-    if random_state:
-        tf.random.set_seed(random_state.randint(2**16))
+    #if random_state:
+    #    tf.random.set_seed(random_state.randint(2**16))
+
+    tf.random.set_seed(1993)
 
     net = Sequential()
     
