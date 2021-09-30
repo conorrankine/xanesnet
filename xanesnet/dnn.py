@@ -19,10 +19,9 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 ############################### LIBRARY IMPORTS ###############################
 ###############################################################################
 
-import numpy as np
 import tensorflow as tf
 
-#from numpy.random import RandomState
+from numpy.random import RandomState
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import Dense
@@ -83,7 +82,7 @@ def build_mlp(
     dropout: float = 0.2,
     kernel_init: str = 'he_uniform',
     bias_init: str = 'zeros',
-    random_state: np.random.RandomState = None
+    random_state: RandomState = None
 ) -> Sequential:
     # returns a tensorflow.keras.models.Sequential neural network with the deep
     # multilayer perceptron (MLP) model; the MLP has an input layer of 
@@ -92,10 +91,8 @@ def build_mlp(
     # hidden layer has [hl_ini_dim] neurons, and each successive hidden layer 
     # is reduced in size by a factor of [hl_shrink]
 
-    #if random_state:
-    #    tf.random.set_seed(random_state.randint(2**16))
-
-    tf.random.set_seed(1993)
+    if random_state:
+        tf.random.set_seed(random_state.randint(2**16))
 
     net = Sequential()
     
