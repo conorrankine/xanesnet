@@ -74,10 +74,18 @@ def learn(
     K-fold cross-validation is possible if {kfold_params} are provided. 
     
     Args:
-        x_path (str): The path to the .xyz (X) data; expects a directory
-            containing .xyz files.
-        y_path (str): The path to the XANES spectral (Y) data; expects a
-            directory containing .txt FDMNES output files.
+        x_path (str): The path to the .xyz (X) data; expects either a directory
+            containing .xyz files or a .npz archive file containing an 'x' key,
+            e.g. the `dataset.npz` file created when save == True. If a .npz
+            archive is provided, save is toggled to False, and the data are not
+            preprocessed, i.e. they are expected to be ready to be passed into
+            the neural net.
+        y_path (str): The path to the XANES spectral (Y) data; expects either a
+            directory containing .txt FDMNES output files or a .npz archive
+            file containing 'y' and 'e' keys, e.g. the `dataset.npz` file
+            created when save == True. If a .npz archive is provided, save is
+            toggled to False, and the data are not preprocessed, i.e. they are
+            expected to be ready to be passed into the neural net.
         descriptor_type (str): The type of descriptor to use; the descriptor
             transforms molecular systems into fingerprint feature vectors
             that encodes the local environment around absorption sites.
@@ -118,44 +126,73 @@ def learn(
 
     x_path = Path(x_path)
     y_path = Path(y_path)
+    
+    for path in (x_path, y_path):
+        if not path.exists():
+            err_str = f'path to X/Y data ({path}) doesn\'t exist'
+            raise FileNotFoundError(err_str)
 
-    sample_ids = list(
-        set(list_filestems(x_path)) & set(list_filestems(y_path))
-    )
+    if x_path.is_dir() and y_path.is_dir():
+        print('>> loading data from directories...\n')
 
-    sample_ids.sort()
-
-    descriptors = {'rdc': RDC, 'wacsf': WACSF}
-    descriptor = descriptors[descriptor_type](**descriptor_params)
-
-    n_samples = len(sample_ids)
-    n_x_features = descriptor.get_len()
-    n_y_features = linecount(y_path / f'{sample_ids[0]}.txt') - 2
-
-    x = np.full((n_samples, n_x_features), np.nan)
-    print('>> preallocated {}x{} array for X data...'.format(*x.shape))
-    #y_pn is the xanes spectra pre-normalised. y is used in the code.
-    y_pn = np.full((n_samples, n_y_features), np.nan)
-    y = np.full((n_samples, n_y_features), np.nan)
-    print('>> preallocated {}x{} array for Y data...'.format(*y.shape))
-    print('>> ...everything preallocated!\n')
-
-    print('>> loading data into array(s)...')
-    for i, sample_id in enumerate(tqdm.tqdm(sample_ids)):
-        x[i,:] = descriptor.transform(
-            load_xyz(x_path / f'{sample_id}.xyz')
+        sample_ids = list(
+            set(list_filestems(x_path)) & set(list_filestems(y_path))
         )
-        e, y_pn[i,:] = load_xanes(y_path / f'{sample_id}.txt')
-        y[i,:] = norm_xanes(y_pn[i,:])
-    print('>> ...loaded into array(s) and normalised!\n')
 
-    if save:
-        model_dir = unique_path(Path('.'), 'model')
-        model_dir.mkdir()
-        with open(model_dir / 'descriptor.pickle', 'wb') as f:
-            pickle.dump(descriptor, f)
-        with open(model_dir / 'dataset.npz', 'wb') as f:
-            np.savez_compressed(f, x = x, y = y, e = e)
+        sample_ids.sort()
+
+        descriptors = {'rdc': RDC, 'wacsf': WACSF}
+        descriptor = descriptors[descriptor_type](**descriptor_params)
+
+        n_samples = len(sample_ids)
+        n_x_features = descriptor.get_len()
+        n_y_features = linecount(y_path / f'{sample_ids[0]}.txt') - 2
+
+        x = np.full((n_samples, n_x_features), np.nan)
+        print('>> preallocated {}x{} array for X data...'.format(*x.shape))
+        y_pn = np.full((n_samples, n_y_features), np.nan)
+        y = np.full((n_samples, n_y_features), np.nan)
+        print('>> preallocated {}x{} array for Y data...'.format(*y.shape))
+        print('>> ...everything preallocated!\n')
+
+        print('>> loading data into array(s)...')
+        for i, sample_id in enumerate(tqdm.tqdm(sample_ids)):
+            x[i,:] = descriptor.transform(
+                load_xyz(x_path / f'{sample_id}.xyz')
+            )
+            e, y_pn[i,:] = load_xanes(y_path / f'{sample_id}.txt')
+            y[i,:] = norm_xanes(y_pn[i,:])
+        print('>> ...loaded into array(s)!\n')
+
+        if save:
+            model_dir = unique_path(Path('.'), 'model')
+            model_dir.mkdir()
+            with open(model_dir / 'descriptor.pickle', 'wb') as f:
+                pickle.dump(descriptor, f)
+            with open(model_dir / 'dataset.npz', 'wb') as f:
+                np.savez_compressed(f, x = x, y = y, e = e)
+
+    elif x_path.is_file() and y_path.is_file():
+        print('>> loading data from .npz archive(s)...\n')
+        
+        with open(x_path, 'rb') as f:
+            x = np.load(f)['x']
+        print('>> ...loaded {}x{} array of X data'.format(*x.shape))
+        with open(y_path, 'rb') as f:
+            y = np.load(f)['y']
+            e = np.load(f)['e']
+        print('>> ...loaded {}x{} array of Y data'.format(*y.shape))
+        print('>> ...everything loaded!\n')
+
+        if save:
+            print('>> overriding save flag (running in `--no-save` mode)\n')
+            save = False
+
+    else:
+
+        err_str = 'paths to X/Y data are expected to be either a) both ' \
+            'files (.npz archives), or b) both directories'
+        raise TypeError(err_str)
 
     print('>> shuffling and selecting data...')
     shuffle(x, y, random_state = rng, n_samples = max_samples)
