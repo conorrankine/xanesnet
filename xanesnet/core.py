@@ -314,7 +314,10 @@ def predict(
     print('>> predicting Y data with neural net...')
     y_predict = pipeline.predict(x)
     if y_predict.ndim == 1:
-        y_predict = y_predict.reshape(-1, y_predict.size)
+        if len(sample_ids) == 1:
+            y_predict = y_predict.reshape(-1, y_predict.size)
+        else:
+            y_predict = y_predict.reshape(y_predict.size, -1)
     print('>> ...predicted Y data!\n')
 
     predict_dir = unique_path(Path('.'), 'predictions')
