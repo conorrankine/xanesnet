@@ -46,24 +46,18 @@ def parse_args(args: list):
     sub_p = p.add_subparsers(dest = 'mode')
 
     learn_p = sub_p.add_parser('learn')
-    
     learn_p.add_argument('inp_f', type = str, 
-        help = ('path to a .txt input file with variable definitions ',
-                '(see examples & docs)'))
+        help = 'path to .json input file w/ variable definitions')
     learn_p.add_argument('--no-save', dest = 'save', action = 'store_false',
-        help = ('toggles saving off; the model directory \(containing data ',
-            'serialised scaling/pipeline objects, the serialised neural net, ',
-            'and neural net fragments and logs\) is not created'))
+        help = 'toggles model directory creation and population to <off>')
 
     predict_p = sub_p.add_parser('predict')
-    
     predict_p.add_argument('mdl_dir', type = str, 
-        help = ('path to a model.[?] directory created using learn mode'))
+        help = 'path to populated model directory')
     predict_p.add_argument('xyz_dir', type = str, 
-        help = ('path to a directory containing .xyzs to predict with'))
+        help = 'path to .xyz input directory for prediction')
     predict_p.add_argument('-c', '--conv_inp_f', type = str, 
-        help = ('path to .txt input file with variable definitions ',
-                'for arctan convolution (see examples & docs'))
+        help = 'path to .json input file w/ convolution variable definitions')
     
     args = p.parse_args()
 
