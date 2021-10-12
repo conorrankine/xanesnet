@@ -135,18 +135,18 @@ def learn(
     if x_path.is_dir() and y_path.is_dir():
         print('>> loading data from directories...\n')
 
-        sample_ids = list(
+        ids = list(
             set(list_filestems(x_path)) & set(list_filestems(y_path))
         )
 
-        sample_ids.sort()
+        ids.sort()
 
         descriptors = {'rdc': RDC, 'wacsf': WACSF}
         descriptor = descriptors[descriptor_type](**descriptor_params)
 
-        n_samples = len(sample_ids)
+        n_samples = len(ids)
         n_x_features = descriptor.get_len()
-        n_y_features = linecount(y_path / f'{sample_ids[0]}.txt') - 2
+        n_y_features = linecount(y_path / f'{ids[0]}.txt') - 2
 
         x = np.full((n_samples, n_x_features), np.nan)
         print('>> preallocated {}x{} array for X data...'.format(*x.shape))
@@ -156,11 +156,9 @@ def learn(
         print('>> ...everything preallocated!\n')
 
         print('>> loading data into array(s)...')
-        for i, sample_id in enumerate(tqdm.tqdm(sample_ids)):
-            x[i,:] = descriptor.transform(
-                load_xyz(x_path / f'{sample_id}.xyz')
-            )
-            e, y_pn[i,:] = load_xanes(y_path / f'{sample_id}.txt')
+        for i, id_ in enumerate(tqdm.tqdm(ids)):
+            x[i,:] = descriptor.transform(load_xyz(x_path / f'{id_}.xyz'))
+            e, y_pn[i,:] = load_xanes(y_path / f'{id_}.txt')
             y[i,:] = norm_xanes(y_pn[i,:])
         print('>> ...loaded into array(s)!\n')
 
@@ -170,7 +168,7 @@ def learn(
             with open(model_dir / 'descriptor.pickle', 'wb') as f:
                 pickle.dump(descriptor, f)
             with open(model_dir / 'dataset.npz', 'wb') as f:
-                np.savez_compressed(f, x = x, y = y, e = e)
+                np.savez_compressed(f, ids = ids, x = x, y = y, e = e)
 
     elif x_path.is_file() and y_path.is_file():
         print('>> loading data from .npz archive(s)...\n')
@@ -287,12 +285,12 @@ def predict(
 
     x_path = Path(x_path)
 
-    sample_ids = list_filestems(x_path)
+    ids = list_filestems(x_path)
 
     with open(model_dir / 'descriptor.pickle', 'rb') as f:
         descriptor = pickle.load(f)
 
-    n_samples = len(sample_ids)
+    n_samples = len(ids)
     n_x_features = descriptor.get_len()
 
     x = np.full((n_samples, n_x_features), np.nan)
@@ -300,10 +298,8 @@ def predict(
     print('>> ...everything preallocated!\n')
 
     print('>> loading data into array(s)...')
-    for i, sample_id in enumerate(tqdm.tqdm(sample_ids)):
-        x[i,:] = descriptor.transform(
-            load_xyz(x_path / f'{sample_id}.xyz')
-        )
+    for i, id_ in enumerate(tqdm.tqdm(ids)):
+        x[i,:] = descriptor.transform(load_xyz(x_path / f'{id_}.xyz'))
     print('>> ...loaded!\n')
 
     pipeline = load_pipeline(
@@ -314,7 +310,7 @@ def predict(
     print('>> predicting Y data with neural net...')
     y_predict = pipeline.predict(x)
     if y_predict.ndim == 1:
-        if len(sample_ids) == 1:
+        if len(ids) == 1:
             y_predict = y_predict.reshape(-1, y_predict.size)
         else:
             y_predict = y_predict.reshape(y_predict.size, -1)
@@ -327,8 +323,8 @@ def predict(
         e = np.load(f)['e']
 
     print('>> saving Y data predictions...')
-    for sample_id, y_predict_ in tqdm.tqdm(zip(sample_ids, y_predict)):
-        save_path = predict_dir / f'{sample_id}.txt'
+    for id_, y_predict_ in tqdm.tqdm(zip(ids, y_predict)):
+        save_path = predict_dir / f'{id_}.txt'
         save_xanes(save_path, e, y_predict_)
     print('...saved!\n')
 
@@ -337,8 +333,8 @@ def predict(
         convoluter = ArctanConvoluter(**conv_params)
 
         print('>> saving convoluted Y data predictions...')
-        for sample_id, y_predict_ in tqdm.tqdm(zip(sample_ids, y_predict)):
-            save_path = predict_dir / f'{sample_id}_conv.txt'
+        for id_, y_predict_ in tqdm.tqdm(zip(ids, y_predict)):
+            save_path = predict_dir / f'{id_}_conv.txt'
             save_xanes(save_path, e, convoluter.convolute(e, y_predict_))
         print('...saved!\n')
         
