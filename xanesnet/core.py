@@ -26,6 +26,7 @@ import tqdm as tqdm
 from pathlib import Path
 from numpy.random import RandomState
 from sklearn.pipeline import Pipeline
+from sklearn.feature_selection import VarianceThreshold
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import KFold
 from sklearn.model_selection import RepeatedKFold
@@ -63,6 +64,7 @@ def learn(
     kfold_params: dict = {},
     hyperparams: dict = {},
     max_samples: int = None,
+    variance_threshold: float = 0.0,
     epochs: int = 100,
     callbacks: dict = {},
     seed: int = None,
@@ -105,6 +107,10 @@ def learn(
             from the X/Y data; the samples are chosen according to a uniform
             distribution from the full X/Y dataset.
             Defaults to None.
+        variance_threshold (float, optional): The minimum variance threshold
+            tolerated for input features; input features with variances below
+            the variance threshold are eliminated.
+            Defaults to 0.0.
         epochs (int, optional): The maximum number of epochs/cycles.
             Defaults to 100.
         callbacks (dict, optional): A dictionary of keyword arguments passed
@@ -198,7 +204,6 @@ def learn(
 
     net = KerasRegressor(
         build_fn = build_mlp, 
-        inp_dim = x[0].size, 
         out_dim = y[0].size, 
         **hyperparams,
         callbacks = set_callbacks(**callbacks),
@@ -208,7 +213,11 @@ def learn(
     )
 
     print('>> setting up preprocessing pipeline...')
-    pipeline = Pipeline([('scaler', StandardScaler()), ('net', net)])
+    pipeline = Pipeline([
+        ('variance_threshold', VarianceThreshold(variance_threshold)),
+        ('scaler', StandardScaler()),
+        ('net', net)
+    ])
     for i, step in enumerate(pipeline.get_params()['steps']):
         print(f'  >> {i + 1}. ' + '{} :: {}'.format(*step))
     print('>> ...set up!\n')

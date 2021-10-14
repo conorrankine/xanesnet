@@ -71,7 +71,6 @@ def set_callbacks(**kwargs) -> list:
     return callbacks
 
 def build_mlp(
-    inp_dim: int, 
     out_dim: int, 
     n_hl: int = 2, 
     hl_ini_dim: int = 256, 
@@ -85,11 +84,10 @@ def build_mlp(
     random_state: RandomState = None
 ) -> Sequential:
     # returns a tensorflow.keras.models.Sequential neural network with the deep
-    # multilayer perceptron (MLP) model; the MLP has an input layer of 
-    # [inp_dim] neurons and an output layer of [out_dim] neurons; there are 
-    # [n_hl] hidden layers between the input and output layers, the first
-    # hidden layer has [hl_ini_dim] neurons, and each successive hidden layer 
-    # is reduced in size by a factor of [hl_shrink]
+    # multilayer perceptron (MLP) model; the MLP has an output layer of 
+    # `out_dim` neurons; there are `n_hl` hidden layers between the input and
+    # output layers, the first hidden layer has `hl_ini_dim` neurons, and
+    # successive changes in size layer-on-layer are controlled via `hl_shrink`
 
     if random_state:
         tf.random.set_seed(random_state.randint(2**16))
@@ -103,7 +101,7 @@ def build_mlp(
         "bias_regularizer": None        
     }
 
-    net.add(Dense(hl_ini_dim, input_dim = inp_dim, **ini_condition))
+    net.add(Dense(hl_ini_dim, **ini_condition))
     net.add(Activation(activation))
     net.add(Dropout(dropout))
     
