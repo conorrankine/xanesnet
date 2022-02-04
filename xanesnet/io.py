@@ -54,7 +54,7 @@ def save_xyz(xyz_f: Path, atoms: Atoms):
     with open(xyz_f, 'w') as f:
         f.write(f'{len(atoms)}\n\n')
         for atom in atoms:
-            fmt = '{:<4}{:>12.8f}{:>12.8f}{:>12.8f}\n'
+            fmt = '{:<4}{:>16.8f}{:>16.8f}{:>16.8f}\n'
             f.write(fmt.format(atom.symbol, *atom.position))
 
     return 0
