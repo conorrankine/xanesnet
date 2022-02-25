@@ -199,7 +199,7 @@ def learn(
         raise TypeError(err_str)
 
     print('>> shuffling and selecting data...')
-    shuffle(x, y, random_state = rng, n_samples = max_samples)
+    x, y = shuffle(x, y, random_state = rng, n_samples = max_samples)
     print('>> ...shuffled and selected!\n')
 
     net = KerasRegressor(
