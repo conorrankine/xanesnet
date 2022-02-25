@@ -47,7 +47,8 @@ from xanesnet.utils import unique_path
 from xanesnet.utils import linecount
 from xanesnet.utils import list_filestems
 from xanesnet.utils import print_cross_validation_scores
-from xanesnet.normalise import norm_xanes
+from xanesnet.normalisers import SimpleXANESScaler
+from xanesnet.normalisers import EdgeStepXANESScaler
 from xanesnet.convolute import ArctanConvoluter
 from xanesnet.descriptors import RDC
 from xanesnet.descriptors import WACSF
@@ -61,6 +62,8 @@ def learn(
     y_path: str,
     descriptor_type: str,
     descriptor_params: dict = {},
+    xanes_scaler_type: str = 'simple',
+    xanes_scaler_params: dict = {},
     kfold_params: dict = {},
     hyperparams: dict = {},
     max_samples: int = None,
@@ -90,10 +93,16 @@ def learn(
             expected to be ready to be passed into the neural net.
         descriptor_type (str): The type of descriptor to use; the descriptor
             transforms molecular systems into fingerprint feature vectors
-            that encodes the local environment around absorption sites.
-            See xanesnet.descriptors for additional information.
+            that encodes the local environment around absorption sites. See
+            xanesnet.descriptors for additional information.
         descriptor_params (dict, optional): A dictionary of keyword
             arguments passed to the descriptor on initialisation.
+            Defaults to {}.
+        xanes_scaler_type (str, optional): The type of XANES scaler to use. See
+            xanesnet.xanes_scalers for additional information.
+            Defaults to 'simple'.
+        xanes_scaler_params (dict, optional): A dictionary of keyword arguments
+            passed to the XANES scaler on initialisation.
             Defaults to {}.
         kfold_params (dict, optional): A dictionary of keyword arguments
             passed to a scikit-learn K-fold splitter (KFold or RepeatedKFold).
@@ -147,8 +156,19 @@ def learn(
 
         ids.sort()
 
-        descriptors = {'rdc': RDC, 'wacsf': WACSF}
+        descriptors = {
+            'rdc': RDC,
+            'wacsf': WACSF
+        }
+        
         descriptor = descriptors[descriptor_type](**descriptor_params)
+
+        xanes_scalers = {
+            'simple': SimpleXANESScaler,
+            'edge_step': EdgeStepXANESScaler
+        }
+
+        xanes_scaler = xanes_scalers[xanes_scaler_type](**xanes_scaler_params)
 
         n_samples = len(ids)
         n_x_features = descriptor.get_len()
@@ -156,16 +176,16 @@ def learn(
 
         x = np.full((n_samples, n_x_features), np.nan)
         print('>> preallocated {}x{} array for X data...'.format(*x.shape))
-        y_pn = np.full((n_samples, n_y_features), np.nan)
         y = np.full((n_samples, n_y_features), np.nan)
         print('>> preallocated {}x{} array for Y data...'.format(*y.shape))
         print('>> ...everything preallocated!\n')
 
         print('>> loading data into array(s)...')
         for i, id_ in enumerate(tqdm.tqdm(ids)):
-            x[i,:] = descriptor.transform(load_xyz(x_path / f'{id_}.xyz'))
-            e, y_pn[i,:] = load_xanes(y_path / f'{id_}.txt')
-            y[i,:] = norm_xanes(y_pn[i,:])
+            ase = load_xyz(x_path / f'{id_}.xyz')
+            x[i,:] = descriptor.transform(ase)
+            e, m = load_xanes(y_path / f'{id_}.txt')
+            y[i,:] = xanes_scaler.transform(m)
         print('>> ...loaded into array(s)!\n')
 
         if save:
@@ -173,6 +193,8 @@ def learn(
             model_dir.mkdir()
             with open(model_dir / 'descriptor.pickle', 'wb') as f:
                 pickle.dump(descriptor, f)
+            with open(model_dir / 'xanes_scaler.pickle', 'wb') as f:
+                pickle.dump(xanes_scaler, f)
             with open(model_dir / 'dataset.npz', 'wb') as f:
                 np.savez_compressed(f, ids = ids, x = x, y = y, e = e)
 
@@ -308,7 +330,8 @@ def predict(
 
     print('>> loading data into array(s)...')
     for i, id_ in enumerate(tqdm.tqdm(ids)):
-        x[i,:] = descriptor.transform(load_xyz(x_path / f'{id_}.xyz'))
+        ase = load_xyz(x_path / f'{id_}.xyz')
+        x[i,:] = descriptor.transform(ase)
     print('>> ...loaded!\n')
 
     pipeline = load_pipeline(
