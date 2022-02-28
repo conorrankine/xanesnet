@@ -31,7 +31,7 @@ from abc import abstractproperty
 
 class XANESScaler(ABC):
     """
-    An abstract base class for scaling/normalising XANES spectra.
+    An abstract base class for scaling XANES spectra.
     """
 
     def __init__(
@@ -41,15 +41,16 @@ class XANESScaler(ABC):
         pass
 
     @abstractmethod
-    def transform(self, m: np.ndarray) -> np.ndarray:
+    def transform(self, e: np.ndarray, m: np.ndarray,) -> np.ndarray:
         """
         Scales a XANES spectrum.
 
         Args:
-            m (np.ndarray): A XANES spectrum.
-
+            e (np.ndarray): Energy values (in eV).
+            m (np.ndarray): Intensity values (in arb. units).
+            
         Returns:
-            np.ndarray: A scaled/normalised XANES spectrum.
+            np.ndarray: Intensity values (in arb. units) after scaling.
         """
 
         pass
@@ -67,9 +68,11 @@ class SimpleXANESScaler(XANESScaler):
 
         super().__init__()
 
-    def transform(self, m: np.ndarray) -> np.ndarray:
+    def transform(self, e: np.ndarray, m: np.ndarray) -> np.ndarray:
 
-        return m / m[-1]
+        m_scaled = m / m[-1]
+
+        return m_scaled
 
 class EdgeStepXANESScaler(XANESScaler):
     """
@@ -78,17 +81,58 @@ class EdgeStepXANESScaler(XANESScaler):
     XANES spectrum, determining the 'edge-step', q(e_edge), and scaling the
     XANES spectrum by dividing through by this value. The XANES spectra can
     also be flattened; in this case, the post-edge part of the XANES spectrum
-    is levelled off to 1.0 by adding 1.0 - q(e_edge) where e > e_edge.
+    is levelled off to 1.0 by adding (1.0 - q(e_edge)) where e > e_edge.
     """
 
     def __init__(
-        self
+        self,
+        e_edge: float,
+        e_fit_min_rel: float = 100.0,
+        e_fit_max_rel: float = 400.0,
+        flatten = True,
     ):
+        """
+        Args:
+            e_edge (float): The absorption edge energy (in eV); available @
+                <http://skuld.bmsc.washington.edu/scatter/AS_periodic.html>
+            e_fit_min_rel (float, optional): The minimum energy (in eV,
+                relative to the absorption edge) for the quadratic 
+                polynomial fitting window.
+                Defaults to 100.0.
+            e_fit_max_rel (float, optional): The maximum energy (in eV,
+                relative to the absorption edge) for the quadratic
+                polynomial fitting window.
+                Defaults to 400.0.
+            flatten (bool, optional): Toggles flattening of the post-edge
+                part of the XANES spectrum; if True, it is levelled off to 1.0
+                by adding (1.0 - q(e_edge)) where e > e_edge.
+                Defaults to True.
+        """
         
         super().__init__()
 
-    def transform(self, m: np.ndarray) -> np.ndarray:
-        #TODO: implement this!
-        
-        err_str = 'work in progress; coming to XANESNET soon!'
-        raise NotImplementedError(err_str)
+        self.e_edge = e_edge
+        self.e_fit_min = e_edge + e_fit_min_rel
+        self.e_fit_max = e_edge + e_fit_max_rel
+        self.flatten = flatten
+
+    def transform(self, e: np.ndarray, m: np.ndarray) -> np.ndarray:
+
+        e_edge_idx = np.argmin(np.abs(e - self.e_edge))
+        e_fit_min_idx = np.argmin(np.abs(e - self.e_fit_min))
+        e_fit_max_idx = np.argmin(np.abs(e - self.e_fit_max))
+
+        q = np.polynomial.Polynomial.fit(
+            e[e_fit_min_idx:e_fit_max_idx],
+            m[e_fit_min_idx:e_fit_max_idx],
+            deg = 2
+        )
+
+        edge_step = q(self.e_edge)
+
+        m_scaled = m / edge_step
+
+        if self.flatten:
+            m_scaled[e_edge_idx:] += (1.0 - (q(e) / edge_step)[e_edge_idx:])
+
+        return m_scaled

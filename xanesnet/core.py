@@ -195,7 +195,7 @@ def learn(
             ase = load_xyz(x_path / f'{id_}.xyz')
             x[i,:] = descriptor.transform(ase)
             e, m = load_xanes(y_path / f'{id_}.txt')
-            y[i,:] = xanes_scaler.transform(m) if xanes_scaler else m
+            y[i,:] = xanes_scaler.transform(e, m) if xanes_scaler else m
         print('>> ...loaded into array(s)!\n')
 
         if save:
