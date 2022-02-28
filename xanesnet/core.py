@@ -161,14 +161,24 @@ def learn(
             'wacsf': WACSF
         }
         
-        descriptor = descriptors[descriptor_type](**descriptor_params)
+        descriptor = (
+            descriptors.get(descriptor_type)(**descriptor_params)
+        )
 
         xanes_scalers = {
+            'none': None,
             'simple': SimpleXANESScaler,
             'edge_step': EdgeStepXANESScaler
         }
 
-        xanes_scaler = xanes_scalers[xanes_scaler_type](**xanes_scaler_params)
+        if xanes_scaler_type == 'none':
+            xanes_scaler = (
+                xanes_scalers.get(xanes_scaler_type)
+            )
+        else:
+            xanes_scaler = (
+                xanes_scalers.get(xanes_scaler_type)(**xanes_scaler_params)
+            )
 
         n_samples = len(ids)
         n_x_features = descriptor.get_len()
@@ -185,7 +195,7 @@ def learn(
             ase = load_xyz(x_path / f'{id_}.xyz')
             x[i,:] = descriptor.transform(ase)
             e, m = load_xanes(y_path / f'{id_}.txt')
-            y[i,:] = xanes_scaler.transform(m)
+            y[i,:] = xanes_scaler.transform(m) if xanes_scaler else m
         print('>> ...loaded into array(s)!\n')
 
         if save:
