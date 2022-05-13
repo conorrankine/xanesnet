@@ -58,6 +58,15 @@ def list_filestems(d: Path) -> list:
 
     return [f.stem for f in list_files(d)]
 
+def str_to_numeric(str_: str):
+    # returns the numeric (floating-point or integer) cast of `str_` if
+    # cast is allowed, otherwise returns `str_`
+
+    try:
+        return float(str_) if '.' in str_ else int(str_)
+    except ValueError:
+        return str_
+
 def print_nested_dict(dict_: dict, nested_level: int = 0):
     # prints the key:value pairs in a dictionary (`dict`) in the format
     # '>> key :: value'; iterates recursively through any subdictionaries,

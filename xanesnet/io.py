@@ -16,7 +16,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 ###############################################################################
-############################### LIBRARY IMPORTS ###############################
+############################### LIBRARY IMPORTS ###############################t
 ###############################################################################
 
 import numpy as np
@@ -28,31 +28,54 @@ from sklearn.pipeline import Pipeline
 from tensorflow.keras.models import load_model
 from tensorflow.keras.models import save_model
 
+from xanesnet.utils import str_to_numeric
+
 ###############################################################################
 ################################## FUNCTIONS ##################################
 ###############################################################################
 
 def load_xyz(xyz_f: Path) -> Atoms:
-    # loads an ase.atoms object from a .xyz file
+    # loads an Atoms object from a .xyz file
 
     with open(xyz_f, 'r') as f:
-        xyz_f_l = [l.strip().split() for l in f]
+        xyz_f_l = [l.strip() for l in f]
 
-    # atomic numbers
-    z = np.array([l[0] for l in xyz_f_l[2:]], dtype = 'str')
+    # atomic symbols or atomic numbers
+    ats = np.array([l.split()[0] for l in xyz_f_l[2:]], dtype = 'str')
     # atomic coordinates in .xyz format
-    xyz = np.array([l[1:] for l in xyz_f_l[2:]], dtype = 'float32')
+    xyz = np.array([l.split()[1:] for l in xyz_f_l[2:]], dtype = 'float32')
+    # additional variable definitions ('key = val', '|'-delimited) from the
+    # .xyz comment line; str-, int-, or float-type vals are accepted
+    var = xyz_f_l[1].split(' | ')
+
+    try:
+        info = dict([[key, str_to_numeric(val)] 
+            for key, val in [var_.split(' = ') for var_ in var]])
+    except ValueError:
+        info = dict()
     
     try:
-        return Atoms(z, xyz)
+        # return Atoms object, assuming `z` contains atomic symbols
+        return Atoms(ats, xyz, info = info)
     except KeyError:
-        return Atoms(z.astype('uint8'), xyz)
+        # return Atoms object, assuming `z` contains atomic numbers
+        return Atoms(ats.astype('uint8'), xyz, info = info)
 
 def save_xyz(xyz_f: Path, atoms: Atoms):
     # saves an ase.atoms object in .xyz format
 
     with open(xyz_f, 'w') as f:
-        f.write(f'{len(atoms)}\n\n')
+        # write the number of atoms in `atoms`
+        f.write(f'{len(atoms)}\n')
+        # write additional variable definitions ('key = val', '|'-delimited)
+        # from `atoms.info` to the .xyz comment line
+        for i, (key, val) in enumerate(atoms.info.items()):
+            if i < len(atoms.info) - 1:
+                f.write(f'{key} = {val} | ')
+            else:
+                f.write(f'{key} = {val}')
+        f.write('\n')
+        # write atomic symbols and atomic coordinates in .xyz format
         for atom in atoms:
             fmt = '{:<4}{:>16.8f}{:>16.8f}{:>16.8f}\n'
             f.write(fmt.format(atom.symbol, *atom.position))
