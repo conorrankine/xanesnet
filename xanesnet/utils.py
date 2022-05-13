@@ -84,21 +84,21 @@ def print_cross_validation_scores(scores: dict):
     print('>> summarising scores from k-fold cross validation...')
     print('')
 
-    print('*' * 36)
+    print('*' * 48)
     
-    fmt = '{:<10s}{:>6s}{:>10s}{:>10s}'
+    fmt = '{:<10s}{:>6s}{:>16s}{:>16s}'
     print(fmt.format('k-fold', 'time', 'train', 'test'))
     
-    print('*' * 36)
+    print('*' * 48)
 
-    fmt = '{:<10.0f}{:>5.1f}s{:>10.4f}{:>10.4f}'
+    fmt = '{:<10.0f}{:>5.1f}s{:>16.8f}{:>16.8f}'
     for kf, (t, train, test) in enumerate(zip(
         scores['fit_time'], scores['train_score'], scores['test_score'])):
         print(fmt.format(kf, t, np.absolute(train), np.absolute(test)))
 
-    print('*' * 36)
+    print('*' * 48)
 
-    fmt = '{:<10s}{:>5.1f}s{:>10.4f}{:>10.4f}'
+    fmt = '{:<10s}{:>5.1f}s{:>16.8f}{:>16.8f}'
     means_ = (np.mean(np.absolute(scores[score])) 
         for score in ('fit_time', 'train_score', 'test_score'))
     print(fmt.format('mean', *means_))
@@ -106,6 +106,8 @@ def print_cross_validation_scores(scores: dict):
         for score in ('fit_time', 'train_score', 'test_score'))
     print(fmt.format('std. dev.', *stdevs_))
 
-    print('*' * 36)
+    print('*' * 48)
+
+    print('')
 
     return 0
