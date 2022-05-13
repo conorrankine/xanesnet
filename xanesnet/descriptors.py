@@ -40,7 +40,9 @@ class VectorDescriptor(ABC):
     def __init__(
         self, 
         r_min: float, 
-        r_max: float
+        r_max: float,
+        use_charge: bool,
+        use_spin: bool
     ):
         """
         Args:
@@ -48,6 +50,12 @@ class VectorDescriptor(ABC):
                 the absorption site.
             r_max (float): The maximum radial cutoff distance (in A) around
                 the absorption site.
+            use_charge (bool): If True, includes an additional element in the
+                vector descriptor for the charge state of the complex.
+                Defaults to False.
+            use_spin (bool): If True, includes an additional element in the
+                vector descriptor for the spin state of the complex.
+                Defaults to False.
         """
 
         if isinstance(r_min, (int, float)) and r_min >= 0.0:
@@ -59,6 +67,16 @@ class VectorDescriptor(ABC):
             self.r_max = float(r_max)
         else:
             raise ValueError(f'expected r_max: int/float > r_min; got {r_max}')        
+
+        if isinstance(use_charge, bool):
+            self.use_charge = use_charge
+        else:
+            raise ValueError(f'expected use_charge: bool; got {use_charge}')
+
+        if isinstance(use_spin, bool):
+            self.use_spin = use_spin
+        else:
+            raise ValueError(f'expected use_spin: bool; got {use_spin}')
 
     @abstractmethod
     def transform(self, system: Atoms) -> np.ndarray:
@@ -100,7 +118,9 @@ class RDC(VectorDescriptor):
         r_min: float = 0.0,
         r_max: float = 8.0,
         dr: float = 0.01,
-        alpha: float = 10.0
+        alpha: float = 10.0,
+        use_charge = False,
+        use_spin = False
     ):
         """
         Args:
@@ -116,9 +136,15 @@ class RDC(VectorDescriptor):
             alpha (float): A smoothing parameter used in a Gaussian exponent
                 that defines the effective spatial resolution of the RDC.
                 Defaults to 10.0.
+            use_charge (bool): If True, includes an additional element in the
+                vector descriptor for the charge state of the complex.
+                Defaults to False.
+            use_spin (bool): If True, includes an additional element in the
+                vector descriptor for the spin state of the complex.
+                Defaults to False.
         """
 
-        super().__init__(r_min, r_max)
+        super().__init__(r_min, r_max, use_charge, use_spin)
         
         if isinstance(dr, (int, float)) and r_max >= dr > 0.0:
             self.dr = float(dr)
@@ -157,11 +183,17 @@ class RDC(VectorDescriptor):
         exp = np.exp(-1.0 * self.alpha * rij_r_sq)
         rdc = np.sum((zi * zj)[:, np.newaxis] * exp, axis = 0)
 
+        if self.use_spin:
+            rdc = np.append(system.info['S'], rdc)
+
+        if self.use_charge:
+            rdc = np.append(system.info['q'], rdc)
+
         return rdc
 
     def get_len(self) -> int:
         
-        return len(self.r_aux)
+        return len(self.r_aux) + self.use_charge + self.use_spin
 
 class WACSF(VectorDescriptor):
     """
@@ -186,7 +218,9 @@ class WACSF(VectorDescriptor):
         l: list = [1.0, -1.0],
         z: list = [1.0],
         g2_parameterisation: str = 'shifted',
-        g4_parameterisation: str = 'centred'
+        g4_parameterisation: str = 'centred',
+        use_charge = False,
+        use_spin = False
     ):
         """
         Args:
@@ -220,9 +254,15 @@ class WACSF(VectorDescriptor):
                 'centred'. For details, see Marquetand et al.; J. Chem. Phys.,
                 2018, 148, 241709 (DOI: 10.1063/1.5019667).
                 Defaults to 'centred'.
+            use_charge (bool): If True, includes an additional element in the
+                vector descriptor for the charge state of the complex.
+                Defaults to False.
+            use_spin (bool): If True, includes an additional element in the
+                vector descriptor for the spin state of the complex.
+                Defaults to False.
         """
 
-        super().__init__(r_min, r_max)
+        super().__init__(r_min, r_max, use_charge, use_spin)
 
         self.n_g2 = n_g2
         self.n_g4 = n_g4
@@ -284,11 +324,17 @@ class WACSF(VectorDescriptor):
             g4 = self.g4_transformer.transform(zj, zk, rij, rik, rjk, ajik)
             wacsf = np.append(wacsf, g4)
 
+        if self.use_spin:
+            wacsf = np.append(system.info['S'], wacsf)
+
+        if self.use_charge:
+            wacsf = np.append(system.info['q'], wacsf)
+
         return wacsf
 
     def get_len(self) -> int:
         
-        return 1 + self.n_g2 + self.n_g4
+        return 1 + self.n_g2 + self.n_g4 + self.use_charge + self.use_spin
 
 class SymmetryFunctionTransformer(ABC):
     """
