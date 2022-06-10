@@ -192,9 +192,11 @@ def learn(
 
         print('>> loading data into array(s)...')
         for i, id_ in enumerate(tqdm.tqdm(ids)):
-            ase = load_xyz(x_path / f'{id_}.xyz')
-            x[i,:] = descriptor.transform(ase)
-            e, m = load_xanes(y_path / f'{id_}.txt')
+            with open(x_path / f'{id_}.xyz', 'r') as f:
+                atoms = load_xyz(f)
+            x[i,:] = descriptor.transform(atoms)
+            with open(y_path / f'{id_}.txt', 'r') as f:
+                e, m = load_xanes(f)
             y[i,:] = xanes_scaler.transform(e, m) if xanes_scaler else m
         print('>> ...loaded into array(s)!\n')
 
@@ -340,8 +342,9 @@ def predict(
 
     print('>> loading data into array(s)...')
     for i, id_ in enumerate(tqdm.tqdm(ids)):
-        ase = load_xyz(x_path / f'{id_}.xyz')
-        x[i,:] = descriptor.transform(ase)
+        with open(x_path / f'{id_}.xyz', 'r') as f:
+            atoms = load_xyz(f)
+        x[i,:] = descriptor.transform(atoms)
     print('>> ...loaded!\n')
 
     pipeline = load_pipeline(
@@ -366,8 +369,8 @@ def predict(
 
     print('>> saving Y data predictions...')
     for id_, y_predict_ in tqdm.tqdm(zip(ids, y_predict)):
-        save_path = predict_dir / f'{id_}.txt'
-        save_xanes(save_path, e, y_predict_)
+        with open(predict_dir / f'{id_}.txt', 'w') as f:
+            save_xanes(f, e, y_predict_)
     print('...saved!\n')
 
     if conv_params:
@@ -376,8 +379,8 @@ def predict(
 
         print('>> saving convoluted Y data predictions...')
         for id_, y_predict_ in tqdm.tqdm(zip(ids, y_predict)):
-            save_path = predict_dir / f'{id_}_conv.txt'
-            save_xanes(save_path, e, convoluter.convolute(e, y_predict_))
+            with open(predict_dir / f'{id_}_conv.txt', 'w') as f:
+                save_xanes(f, e, convoluter.convolute(e, y_predict_))
         print('...saved!\n')
         
     return 0

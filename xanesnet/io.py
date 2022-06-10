@@ -25,6 +25,8 @@ import pickle as pickle
 from ase import Atoms
 from pathlib import Path
 from sklearn.pipeline import Pipeline
+from typing import TextIO
+from typing import BinaryIO
 from tensorflow.keras.models import load_model
 from tensorflow.keras.models import save_model
 
@@ -34,75 +36,82 @@ from xanesnet.utils import str_to_numeric
 ################################## FUNCTIONS ##################################
 ###############################################################################
 
-def load_xyz(xyz_f: Path) -> Atoms:
+def load_xyz(xyz_f: TextIO) -> Atoms:
     # loads an Atoms object from a .xyz file
 
-    with open(xyz_f, 'r') as f:
-        xyz_f_l = [l.strip() for l in f]
+    xyz_f_l = xyz_f.readlines()
 
+    # pop the number of atoms `n_ats`
+    n_ats = int(xyz_f_l.pop(0))
+
+    # pop the .xyz comment block
+    comment_block = xyz_f_l.pop(0)
+
+    # pop the .xyz coordinate block
+    coord_block = [xyz_f_l.pop(0).split() for _ in range(n_ats)]
     # atomic symbols or atomic numbers
-    ats = np.array([l.split()[0] for l in xyz_f_l[2:]], dtype = 'str')
+    ats = np.array([l[0] for l in coord_block], dtype = 'str')
     # atomic coordinates in .xyz format
-    xyz = np.array([l.split()[1:] for l in xyz_f_l[2:]], dtype = 'float32')
-    # additional variable definitions ('key = val', '|'-delimited) from the
-    # .xyz comment line; str-, int-, or float-type vals are accepted
-    var = xyz_f_l[1].split(' | ')
+    xyz = np.array([l[1:] for l in coord_block], dtype = 'float32')
 
     try:
-        info = dict([[key, str_to_numeric(val)] 
-            for key, val in [var_.split(' = ') for var_ in var]])
+        info = dict([[key, str_to_numeric(val)] for key, val in
+            [pair.split(' = ') for pair in comment_block.split(' | ')]])
     except ValueError:
         info = dict()
     
     try:
-        # return Atoms object, assuming `z` contains atomic symbols
+        # return Atoms object, assuming `ats` contains atomic symbols
         return Atoms(ats, xyz, info = info)
     except KeyError:
-        # return Atoms object, assuming `z` contains atomic numbers
+        # return Atoms object, assuming `ats` contains atomic numbers
         return Atoms(ats.astype('uint8'), xyz, info = info)
 
-def save_xyz(xyz_f: Path, atoms: Atoms):
-    # saves an ase.atoms object in .xyz format
+def save_xyz(xyz_f: TextIO, atoms: Atoms):
+    # saves an Atoms object in .xyz format
 
-    with open(xyz_f, 'w') as f:
-        # write the number of atoms in `atoms`
-        f.write(f'{len(atoms)}\n')
-        # write additional variable definitions ('key = val', '|'-delimited)
-        # from `atoms.info` to the .xyz comment line
-        for i, (key, val) in enumerate(atoms.info.items()):
-            if i < len(atoms.info) - 1:
-                f.write(f'{key} = {val} | ')
-            else:
-                f.write(f'{key} = {val}')
-        f.write('\n')
-        # write atomic symbols and atomic coordinates in .xyz format
-        for atom in atoms:
-            fmt = '{:<4}{:>16.8f}{:>16.8f}{:>16.8f}\n'
-            f.write(fmt.format(atom.symbol, *atom.position))
+    # write the number of atoms in `atoms`
+    xyz_f.write(f'{len(atoms)}\n')
+    # write additional info ('key = val', '|'-delimited) from the `atoms.info`
+    # dictionary to the .xyz comment block
+    for i, (key, val) in enumerate(atoms.info.items()):
+        if i < len(atoms.info) - 1:
+            xyz_f.write(f'{key} = {val} | ')
+        else:
+            xyz_f.write(f'{key} = {val}')
+    xyz_f.write('\n')
+    # write atomic symbols and atomic coordinates in .xyz format
+    for atom in atoms:
+        fmt = '{:<4}{:>16.8f}{:>16.8f}{:>16.8f}\n'
+        xyz_f.write(fmt.format(atom.symbol, *atom.position))
 
     return 0
 
-def load_xanes(xanes_f: Path) -> (np.ndarray, np.ndarray):
+def load_xanes(xanes_f: TextIO) -> tuple:
     # loads XANES spectral data from a .txt FDMNES output file
 
-    with open(xanes_f, 'r') as f:
-        xanes_f_l = [l.strip().split() for l in f]
+    xanes_f_l = xanes_f.readlines()
 
+    # pop the FDMNES header block
+    for _ in range(2):
+        xanes_f_l.pop(0)
+
+    # pop the XANES spectrum block
+    xanes_block = [xanes_f_l.pop(0).split() for _ in range(len(xanes_f_l))]
     # absorption energies
-    e = np.array([l[0] for l in xanes_f_l[2:]], dtype = 'float32')
+    e = np.array([l[0] for l in xanes_block], dtype = 'float32')
     # absorption intensities
-    m = np.array([l[1] for l in xanes_f_l[2:]], dtype = 'float32')
+    m = np.array([l[1] for l in xanes_block], dtype = 'float32')
 
     return e, m
 
-def save_xanes(xanes_f: Path, e: np.ndarray, m: np.ndarray):
+def save_xanes(xanes_f: TextIO, e: np.ndarray, m: np.ndarray):
     # saves XANES spectral data in .txt FDMNES output format
 
-    with open(xanes_f, 'w') as f:
-        f.write(f'{"FDMNES":>10}\n{"energy":>10}{"<xanes>":>12}\n')
-        for e_, m_ in zip(e, m):
-            fmt = f'{e_:>10.2f}{m_:>15.7E}\n'
-            f.write(fmt.format(e_, m_))
+    xanes_f.write(f'{"FDMNES":>10}\n{"energy":>10}{"<xanes>":>12}\n')
+    for e_, m_ in zip(e, m):
+        fmt = f'{e_:>10.2f}{m_:>15.7E}\n'
+        xanes_f.write(fmt.format(e_, m_))
 
     return 0
 
