@@ -40,10 +40,12 @@ class XANES():
             m (np.ndarray; 1D): an array of intensity (`mu`; arbitrary) values
             e0 (float, optional): the X-ray absorption edge (`e0`; eV) energy.
                 If None, an attempt is made to determine `e0` from the maximum
-                derivative of `m` with `get_e0()`. Defaults to None.
+                derivative of `m` with `get_e0()`.
+                Defaults to None.
             info (dict, optional): a dictionary of key/val pairs that can be
                 used to store extra information about the XANES spectrum as a
-                tag. Defaults to None.
+                tag.
+                Defaults to None.
 
         Raises:
             ValueError: if the `e` and `m` arrays are not the same length.
@@ -76,6 +78,50 @@ class XANES():
         """
 
         return self._e[np.argmax(np.gradient(self._m))]
+
+    def scale(
+        self,
+        fit_limits: tuple = (100.0, 400.0),
+        flatten: bool = True
+    ):
+        """
+        Scales the intensity (`mu`; arbitrary) values using the 'edge-step'
+        approach: fitting a 2nd-order (quadratic) polynomial, `fit`, to the
+        post-edge (where `e` >= `e0`; eV), determining the 'edge-step',
+        `fit(e0)`, and scaling `mu` by dividing through by this value. `mu`
+        can also be flattened; in this case, the post-edge is levelled off
+        to ca. 1.0 by adding (1.0 - `fit(e0)`) to `mu` where `e` >= `e0`.
+
+        Args:
+            fit_limits (tuple, optional): lower and upper limits (in eV
+                relative to the X-ray absorption edge; `e0`) defining the `e`
+                window over which the 2nd-order (quadratic) polynomial, `fit`,
+                is determined.
+                Defaults to (100.0, 400.0).
+            flatten (bool, optional): toggles flattening of the post-edge by
+                adding (1.0 - `fit(e0)`) to `mu` where `e` >= `e0`.
+                Defaults to True.
+        """
+
+        e_rel = self._e - self._e0
+        e_rel_min, e_rel_max = fit_limits
+
+        fit_window = (e_rel >= e_rel_min) & (e_rel <= e_rel_max)
+
+        fit = np.polynomial.Polynomial.fit(
+            self._e[fit_window],
+            self._m[fit_window],
+            deg = 2
+        )
+
+        self._m /= fit(self._e0)
+
+        if flatten:
+            self._m[self._e >= self._e0] += (
+                1.0 - (fit(self._e)[self._e >= self._e0] / fit(self._e0))
+            )
+
+        return self   
 
     @property
     def e(self) -> float:
