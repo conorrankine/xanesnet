@@ -52,6 +52,7 @@ from xanesnet.normalisers import EdgeStepXANESScaler
 from xanesnet.convolute import ArctanConvoluter
 from xanesnet.descriptors import RDC
 from xanesnet.descriptors import WACSF
+from xanesnet.xanes import XANES
 
 ###############################################################################
 ################################## FUNCTIONS ##################################
@@ -62,8 +63,6 @@ def learn(
     y_path: str,
     descriptor_type: str,
     descriptor_params: dict = {},
-    xanes_scaler_type: str = 'simple',
-    xanes_scaler_params: dict = {},
     kfold_params: dict = {},
     hyperparams: dict = {},
     max_samples: int = None,
@@ -97,12 +96,6 @@ def learn(
             xanesnet.descriptors for additional information.
         descriptor_params (dict, optional): A dictionary of keyword
             arguments passed to the descriptor on initialisation.
-            Defaults to {}.
-        xanes_scaler_type (str, optional): The type of XANES scaler to use. See
-            xanesnet.xanes_scalers for additional information.
-            Defaults to 'simple'.
-        xanes_scaler_params (dict, optional): A dictionary of keyword arguments
-            passed to the XANES scaler on initialisation.
             Defaults to {}.
         kfold_params (dict, optional): A dictionary of keyword arguments
             passed to a scikit-learn K-fold splitter (KFold or RepeatedKFold).
@@ -165,21 +158,6 @@ def learn(
             descriptors.get(descriptor_type)(**descriptor_params)
         )
 
-        xanes_scalers = {
-            'none': None,
-            'simple': SimpleXANESScaler,
-            'edge_step': EdgeStepXANESScaler
-        }
-
-        if xanes_scaler_type == 'none':
-            xanes_scaler = (
-                xanes_scalers.get(xanes_scaler_type)
-            )
-        else:
-            xanes_scaler = (
-                xanes_scalers.get(xanes_scaler_type)(**xanes_scaler_params)
-            )
-
         n_samples = len(ids)
         n_x_features = descriptor.get_len()
         n_y_features = linecount(y_path / f'{ids[0]}.txt') - 2
@@ -196,8 +174,8 @@ def learn(
                 atoms = load_xyz(f)
             x[i,:] = descriptor.transform(atoms)
             with open(y_path / f'{id_}.txt', 'r') as f:
-                e, m = load_xanes(f)
-            y[i,:] = xanes_scaler.transform(e, m) if xanes_scaler else m
+                xanes = load_xanes(f)
+            e, y[i,:] = xanes.spectrum
         print('>> ...loaded into array(s)!\n')
 
         if save:
@@ -205,8 +183,6 @@ def learn(
             model_dir.mkdir()
             with open(model_dir / 'descriptor.pickle', 'wb') as f:
                 pickle.dump(descriptor, f)
-            with open(model_dir / 'xanes_scaler.pickle', 'wb') as f:
-                pickle.dump(xanes_scaler, f)
             with open(model_dir / 'dataset.npz', 'wb') as f:
                 np.savez_compressed(f, ids = ids, x = x, y = y, e = e)
 
@@ -302,8 +278,7 @@ def learn(
 
 def predict(
     model_dir: str,
-    x_path: str,
-    conv_params: dict = {},
+    x_path: str
 ):
     """
     PREDICT. The model state is restored from a model directory containing
@@ -317,11 +292,6 @@ def predict(
             the LEARN routine.
         x_path (str): The path to the .xyz (X) data; expects a directory
             containing .xyz files.
-        conv_params (dict, optional): A dictionary of keyword arguments
-            passed to the convoluter on initialisation; expects, at least,
-            the absorption edge energy ('e_edge') and Fermi energy 
-            ('e_fermi'). See xanesnet/convolute.py for additional info.
-            Defaults to {}.
     """
 
     model_dir = Path(model_dir)
@@ -370,17 +340,7 @@ def predict(
     print('>> saving Y data predictions...')
     for id_, y_predict_ in tqdm.tqdm(zip(ids, y_predict)):
         with open(predict_dir / f'{id_}.txt', 'w') as f:
-            save_xanes(f, e, y_predict_)
+            save_xanes(f, XANES(e, y_predict_))
     print('...saved!\n')
-
-    if conv_params:
-        
-        convoluter = ArctanConvoluter(**conv_params)
-
-        print('>> saving convoluted Y data predictions...')
-        for id_, y_predict_ in tqdm.tqdm(zip(ids, y_predict)):
-            with open(predict_dir / f'{id_}_conv.txt', 'w') as f:
-                save_xanes(f, e, convoluter.convolute(e, y_predict_))
-        print('...saved!\n')
         
     return 0

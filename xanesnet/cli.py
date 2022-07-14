@@ -56,8 +56,6 @@ def parse_args(args: list):
         help = 'path to populated model directory')
     predict_p.add_argument('xyz_dir', type = str, 
         help = 'path to .xyz input directory for prediction')
-    predict_p.add_argument('-c', '--conv_inp_f', type = str, 
-        help = 'path to .json input file w/ convolution variable definitions')
     
     args = p.parse_args()
 
@@ -86,14 +84,6 @@ def main(args: list):
         learn(**inp, save = args.save)
 
     if args.mode == 'predict':
-        if args.conv_inp_f:
-            print(f'>> loading JSON convolutional input @ {args.conv_inp_f}\n')
-            with open(args.conv_inp_f) as f:
-                conv_inp = json.load(f)
-            print_nested_dict(conv_inp, nested_level = 1)
-            print('')
-            predict(args.mdl_dir, args.xyz_dir, **conv_inp)
-        else:
             predict(args.mdl_dir, args.xyz_dir)
         
     banner = importlib.resources.read_text(resources, 'banner_close.txt')

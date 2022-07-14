@@ -30,6 +30,7 @@ from typing import BinaryIO
 from tensorflow.keras.models import load_model
 from tensorflow.keras.models import save_model
 
+from xanesnet.xanes import XANES
 from xanesnet.utils import str_to_numeric
 
 ###############################################################################
@@ -87,8 +88,8 @@ def save_xyz(xyz_f: TextIO, atoms: Atoms):
 
     return 0
 
-def load_xanes(xanes_f: TextIO) -> tuple:
-    # loads XANES spectral data from a .txt FDMNES output file
+def load_xanes(xanes_f: TextIO) -> XANES:
+    # loads a XANES object from an FDMNES (.txt) output file
 
     xanes_f_l = xanes_f.readlines()
 
@@ -99,17 +100,17 @@ def load_xanes(xanes_f: TextIO) -> tuple:
     # pop the XANES spectrum block
     xanes_block = [xanes_f_l.pop(0).split() for _ in range(len(xanes_f_l))]
     # absorption energies
-    e = np.array([l[0] for l in xanes_block], dtype = 'float32')
+    e = np.array([l[0] for l in xanes_block], dtype = 'float64')
     # absorption intensities
-    m = np.array([l[1] for l in xanes_block], dtype = 'float32')
+    m = np.array([l[1] for l in xanes_block], dtype = 'float64')
 
-    return e, m
+    return XANES(e, m)
 
-def save_xanes(xanes_f: TextIO, e: np.ndarray, m: np.ndarray):
-    # saves XANES spectral data in .txt FDMNES output format
+def save_xanes(xanes_f: TextIO, xanes: XANES):
+    # saves a XANES object in FDMNES (.txt) output format
 
     xanes_f.write(f'{"FDMNES":>10}\n{"energy":>10}{"<xanes>":>12}\n')
-    for e_, m_ in zip(e, m):
+    for e_, m_ in zip(*xanes.spectrum):
         fmt = f'{e_:>10.2f}{m_:>15.7E}\n'
         xanes_f.write(fmt.format(e_, m_))
 
