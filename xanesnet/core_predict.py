@@ -33,9 +33,9 @@ from xanesnet.io import load_pipeline
 from xanesnet.io import save_pipeline
 from xanesnet.utils import unique_path
 from xanesnet.utils import list_filestems
-from xanesnet.descriptors import RDC
-from xanesnet.descriptors import WACSF
-from xanesnet.xanes import XANES
+from xanesnet.structure.descriptors import RDC
+from xanesnet.structure.descriptors import WACSF
+from xanesnet.spectrum.xanes import XANES
 
 ###############################################################################
 ################################ MAIN FUNCTION ################################

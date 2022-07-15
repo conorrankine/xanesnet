@@ -30,7 +30,7 @@ from typing import BinaryIO
 from tensorflow.keras.models import load_model
 from tensorflow.keras.models import save_model
 
-from xanesnet.xanes import XANES
+from xanesnet.spectrum.xanes import XANES
 from xanesnet.utils import str_to_numeric
 
 ###############################################################################

@@ -47,9 +47,9 @@ from xanesnet.utils import unique_path
 from xanesnet.utils import linecount
 from xanesnet.utils import list_filestems
 from xanesnet.utils import print_cross_validation_scores
-from xanesnet.descriptors import RDC
-from xanesnet.descriptors import WACSF
-from xanesnet.xanes import XANES
+from xanesnet.structure.descriptors import RDC
+from xanesnet.structure.descriptors import WACSF
+from xanesnet.spectrum.xanes import XANES
 
 ###############################################################################
 ################################ MAIN FUNCTION ################################
