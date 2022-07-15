@@ -33,8 +33,8 @@ from xanesnet.io import load_pipeline
 from xanesnet.io import save_pipeline
 from xanesnet.utils import unique_path
 from xanesnet.utils import list_filestems
-from xanesnet.structure.descriptors import RDC
-from xanesnet.structure.descriptors import WACSF
+from xanesnet.structure.rdc import RDC
+from xanesnet.structure.wacsf import WACSF
 from xanesnet.spectrum.xanes import XANES
 
 ###############################################################################
