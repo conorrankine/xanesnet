@@ -47,9 +47,6 @@ from xanesnet.utils import unique_path
 from xanesnet.utils import linecount
 from xanesnet.utils import list_filestems
 from xanesnet.utils import print_cross_validation_scores
-from xanesnet.normalisers import SimpleXANESScaler
-from xanesnet.normalisers import EdgeStepXANESScaler
-from xanesnet.convolute import ArctanConvoluter
 from xanesnet.descriptors import RDC
 from xanesnet.descriptors import WACSF
 from xanesnet.xanes import XANES
