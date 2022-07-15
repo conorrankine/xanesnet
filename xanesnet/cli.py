@@ -28,12 +28,12 @@ from argparse import ArgumentParser
 import xanesnet
 
 from xanesnet import resources
-from xanesnet.core import learn
-from xanesnet.core import predict
+from xanesnet.core_learn import main as learn
+from xanesnet.core_predict import main as predict
 from xanesnet.utils import print_nested_dict
 
 ###############################################################################
-############################ CLI ARGUMENT PARSING #############################
+############################## ARGUMENT PARSING ###############################
 ###############################################################################
 
 def parse_args(args: list):
@@ -62,7 +62,7 @@ def parse_args(args: list):
     return args  
 
 ###############################################################################
-################################ MAIN ROUTINE #################################
+################################ MAIN FUNCTION ################################
 ###############################################################################
 
 def main(args: list):
