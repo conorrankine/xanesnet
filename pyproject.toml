@@ -1,0 +1,17 @@
+[project]
+name = "xanesnet"
+version = "5.0"
+description = """
+A Python package for predicting X-ray absorption (XAS) spectra of molecules
+and materials using machine learning (ML)
+"""
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "ase>=3.24.0",
+    "scikit-learn>=1.6.1",
+    "tqdm>=4.67.1",
+]
+
+[project.scripts]
+xanesnet = "xanesnet:cli.main"
