@@ -1,7 +1,9 @@
 <table align="center">
 <tr><td align="center" width="10000">
 
-<img src = "./resources/xanesnet_graphic.png" width = "380">
+<p>
+    <img src = "./xanesnet/assets/images/xanesnet_graphic.png" width = "380">
+</p>
 
 # <strong> X A N E S N E T </strong>
 
