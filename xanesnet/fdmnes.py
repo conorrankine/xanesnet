@@ -20,7 +20,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 ###############################################################################
 
 from pathlib import Path
-from ase import Atoms
+from ase import Atom, Atoms
 from typing import TextIO
 
 ###############################################################################
@@ -58,3 +58,30 @@ def write_fdmnes_in(f: TextIO, atoms: Atoms, **params) -> None:
             atom.number, *atom.position)
         )
     f.write('END')
+
+def read_fdmnes_in(f: TextIO) -> Atoms:
+    """
+    Reads an input file for the FDMNES program and returns an atomic
+    configuration (ASE Atoms object).
+
+    Args:
+        f (TextIO): FDMNES input file.
+
+    Returns:
+        Atoms: Atomic configuration (ASE Atoms object).
+    """
+
+    atoms = Atoms()
+    
+    in_atoms_block = False
+    for line in f.readlines():
+        line_ = line.strip().split()
+        if 'END' in line_:
+            in_atoms_block = False
+        if in_atoms_block and len(line_) == 4:
+            atom = Atom(int(line_[0]), [float(x) for x in line_[1:]])
+            atoms += atom
+        if 'MOLECULE' in line_:
+            in_atoms_block = True
+
+    return atoms
