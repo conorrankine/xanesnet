@@ -21,7 +21,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from pathlib import Path
 from ase import Atom, Atoms
-from typing import TextIO
+from typing import TextIO, Generator
 
 ###############################################################################
 ################################## FUNCTIONS ##################################
@@ -105,7 +105,9 @@ def read_fdmnes_out(f: TextIO) -> Atoms:
 
     return atoms
 
-def _readlines_between(f: TextIO, start_str: str, end_str: str) -> str:
+def _readlines_between(
+        f: TextIO, start_str: str, end_str: str
+    ) -> Generator[str, None, None]:
     """
     Yields lines from a file found between lines containing a first
     (`start_str`) and second (`end_str`) marker string exclusively (i.e. the
@@ -121,11 +123,15 @@ def _readlines_between(f: TextIO, start_str: str, end_str: str) -> str:
         str: Lines found between `start_str` and `end_str`.
     """
 
-    read = False
-    for line in f.readlines():
-        if end_str.lower() in line.lower():
-            read = False
-        if read:
-            yield line
-        if start_str.lower() in line.lower():
-            read = True
+    start_str_ = start_str.lower()
+    end_str_ = end_str.lower()
+
+    reading = False
+    for line in f:
+        if reading:
+            if end_str_ in line.lower():
+                reading = False
+            else:
+                yield line
+        if not reading and start_str_ in line.lower():
+            reading = True
