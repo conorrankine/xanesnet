@@ -73,16 +73,11 @@ def read_fdmnes_in(f: TextIO) -> Atoms:
 
     atoms = Atoms()
     
-    in_atoms_block = False
-    for line in f.readlines():
+    for line in _readlines_between(f, 'MOLECULE', 'END'):
         line_ = line.strip().split()
-        if 'END' in line_:
-            in_atoms_block = False
-        if in_atoms_block and len(line_) == 4:
+        if len(line_) == 4:
             atom = Atom(int(line_[0]), [float(x) for x in line_[1:]])
             atoms += atom
-        if 'MOLECULE' in line_:
-            in_atoms_block = True
 
     return atoms
 
@@ -100,15 +95,35 @@ def read_fdmnes_out(f: TextIO) -> Atoms:
 
     atoms = Atoms()
 
-    in_atoms_block = False
-    for line in f.readlines():
+    for line in _readlines_between(f, 'POSITIONS', 'IAPOT'):
         line_ = line.strip().split()
-        if 'iapot' in line_:
-            in_atoms_block = False
-        if in_atoms_block and len(line_) == 11:
+        if len(line_) == 11:
             atom = Atom(int(line_[0]), [float(x) for x in line_[1:4]])
             atoms += atom
-        if 'positions' in line_:
-            in_atoms_block = True
 
     return atoms
+
+def _readlines_between(f: TextIO, start_str: str, end_str: str) -> str:
+    """
+    Yields lines from a file found between lines containing a first
+    (`start_str`) and second (`end_str`) marker string exclusively (i.e. the
+    lines containing `start_str` and `end_str` are not included); the search
+    for the marker strings is case-insensitive.
+
+    Args:
+        f (TextIO): File.
+        start_str (str): String marking the start of the section to read.
+        end_str (str): String marking the end of the section to read.
+
+    Yields:
+        str: Lines found between `start_str` and `end_str`.
+    """
+
+    read = False
+    for line in f.readlines():
+        if end_str.lower() in line.lower():
+            read = False
+        if read:
+            yield line
+        if start_str.lower() in line.lower():
+            read = True
