@@ -85,3 +85,30 @@ def read_fdmnes_in(f: TextIO) -> Atoms:
             in_atoms_block = True
 
     return atoms
+
+def read_fdmnes_out(f: TextIO) -> Atoms:
+    """
+    Reads an output ('_bav') file from the FDMNES program and returns an atomic
+    configuration (ASE Atoms object).
+
+    Args:
+        f (TextIO): FDMNES output ('_bav') file.
+
+    Returns:
+        Atoms: Atomic configuration (ASE Atoms object).
+    """
+
+    atoms = Atoms()
+
+    in_atoms_block = False
+    for line in f.readlines():
+        line_ = line.strip().split()
+        if 'iapot' in line_:
+            in_atoms_block = False
+        if in_atoms_block and len(line_) == 11:
+            atom = Atom(int(line_[0]), [float(x) for x in line_[1:4]])
+            atoms += atom
+        if 'positions' in line_:
+            in_atoms_block = True
+
+    return atoms
