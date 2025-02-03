@@ -75,9 +75,10 @@ def read_fdmnes_in(f: TextIO) -> Atoms:
     
     for line in _readlines_between(f, 'MOLECULE', 'END'):
         line_ = line.strip().split()
-        if len(line_) == 4:
-            atom = Atom(int(line_[0]), [float(x) for x in line_[1:]])
-            atoms += atom
+        try:
+            atoms += Atom(int(line_[0]), [float(x) for x in line_[1:4]])
+        except (ValueError, IndexError):
+            pass
 
     return atoms
 
@@ -97,9 +98,10 @@ def read_fdmnes_out(f: TextIO) -> Atoms:
 
     for line in _readlines_between(f, 'POSITIONS', 'IAPOT'):
         line_ = line.strip().split()
-        if len(line_) == 11:
-            atom = Atom(int(line_[0]), [float(x) for x in line_[1:4]])
-            atoms += atom
+        try:
+            atoms += Atom(int(line_[0]), [float(x) for x in line_[1:4]])
+        except (ValueError, IndexError):
+            pass
 
     return atoms
 
