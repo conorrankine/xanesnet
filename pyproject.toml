@@ -15,3 +15,4 @@ dependencies = [
 
 [project.scripts]
 xanesnet = "xanesnet:cli.main"
+to_fdmnes = "xanesnet.fdmnes_tools:to_fdmnes.main"
