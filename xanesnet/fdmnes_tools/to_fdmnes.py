@@ -114,6 +114,7 @@ def main() -> None:
         'radius': args.radius,
         'range': args.range,
         'energpho': None,
+        'scf': None,
         'green': None,
         'quadrupole': None,
         'convolution': None
