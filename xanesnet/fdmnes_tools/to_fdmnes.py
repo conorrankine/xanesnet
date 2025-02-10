@@ -21,6 +21,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from pathlib import Path
 from argparse import ArgumentParser, Namespace
+from typing import Union
 from ase.io import read
 from xanesnet.fdmnes import write_fdmnes_in
 
@@ -42,7 +43,7 @@ def parse_args() -> Namespace:
     p.add_argument('input_f', type = Path,
         help = 'input file containing an atomic configuration (e.g., .xyz)'
     )
-    p.add_argument('--absorber', '-a', type = int, default = 1,
+    p.add_argument('--absorber', '-a', type = _absorber, default = 1,
         help =('index for the absorbing atom')
     )
     p.add_argument('--edge', '-e', type = str, default = 'K',
@@ -62,6 +63,25 @@ def parse_args() -> Namespace:
 
     return args
 
+def _absorber(a: str) -> Union[int, str]:
+    """
+    Custom argument type for the `--absorber`/`-a` command line argument to
+    allow the user to specify the absorber as i) an integer corresponding to
+    the atomic index, or ii) a string corresponding to the atomic symbol.
+
+    Args:
+        a (str): Input value of the `--absorber`/`-a` argument.
+
+    Returns:
+        Union[int, str]: Integer, if int(`a`) passes, else String if int(`a`)
+            returns ValueError.
+    """
+
+    try:
+        return int(a)
+    except ValueError:
+        return a
+
 ###############################################################################
 ################################ MAIN FUNCTION ################################
 ###############################################################################
@@ -72,6 +92,9 @@ def main() -> None:
 
     with open(args.input_f, 'r') as f:
         atoms = read(f)
+
+    if isinstance(args.absorber, str):
+        args.absorber = atoms.get_chemical_symbols().index(args.absorber) + 1
 
     if args.range == 'auto':
         auto_ranges = {
