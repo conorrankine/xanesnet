@@ -27,7 +27,11 @@ from typing import TextIO, Generator
 ################################## FUNCTIONS ##################################
 ###############################################################################
 
-def write_fdmnes_in(f: TextIO, atoms: Atoms, **params) -> None:
+def write_fdmnes_in(
+    f: TextIO,
+    atoms: Atoms,
+    **params
+) -> None:
     """
     Writes an input file for the FDMNES program to carry out an XAS or XES
     calculation on a specified atomic configuration (ASE Atoms object).
@@ -59,7 +63,9 @@ def write_fdmnes_in(f: TextIO, atoms: Atoms, **params) -> None:
         )
     f.write('END')
 
-def read_fdmnes_in(f: TextIO) -> Atoms:
+def read_fdmnes_in(
+    f: TextIO
+) -> Atoms:
     """
     Reads an input file for the FDMNES program and returns an atomic
     configuration (ASE Atoms object).
@@ -82,7 +88,9 @@ def read_fdmnes_in(f: TextIO) -> Atoms:
 
     return atoms
 
-def read_fdmnes_out(f: TextIO) -> Atoms:
+def read_fdmnes_out(
+    f: TextIO
+) -> Atoms:
     """
     Reads an output ('_bav') file from the FDMNES program and returns an atomic
     configuration (ASE Atoms object).
@@ -106,7 +114,9 @@ def read_fdmnes_out(f: TextIO) -> Atoms:
     return atoms
 
 def _readlines_between(
-        f: TextIO, start_str: str, end_str: str
+        f: TextIO,
+        start_str: str,
+        end_str: str
     ) -> Generator[str, None, None]:
     """
     Yields lines from a file found between lines containing a first
