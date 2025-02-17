@@ -1,0 +1,1 @@
+from xanesnet.descriptors.generic import _Descriptor, _VectorDescriptor
