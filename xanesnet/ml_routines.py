@@ -21,6 +21,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from typing import Union
 from pathlib import Path
+from xanesnet.config import load_config
 
 ###############################################################################
 ################################## FUNCTIONS ##################################
@@ -31,7 +32,9 @@ def train(
     config: Path = None
 ):
 
-    pass
+    config = load_config(
+        config if config is not None else 'test_config.yaml'
+    )
 
 def predict(
     data_src: Union[Path, list[Path]],
