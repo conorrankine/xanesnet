@@ -57,7 +57,9 @@ class _Descriptor(ABC):
         pass 
 
     @abstractmethod
-    def get_len(self) -> int:
+    def get_len(
+        self
+    ) -> int:
         """
         Returns:
             int: Number of features.
