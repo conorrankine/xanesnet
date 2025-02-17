@@ -19,7 +19,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 ############################### LIBRARY IMPORTS ###############################
 ###############################################################################
 
-import xanesnet
+import xanesnet as xn
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 
@@ -32,7 +32,7 @@ def parse_args() -> Namespace:
     p = ArgumentParser()
 
     p.add_argument(
-        '--version', '-v', action = 'version', version = xanesnet.__version__
+        '--version', '-v', action = 'version', version = xn.__version__
     )
     
     sub_p = p.add_subparsers(
@@ -76,6 +76,17 @@ def parse_args() -> Namespace:
 def main():
 
     args = parse_args()
+
+    if args.mode == 'train':
+        xn.train(
+            args.data_src,
+            args.config
+        )
+    if args.mode == 'predict':
+        xn.predict(
+            args.data_src,
+            args.model
+        )
 
 ################################################################################
 ############################## PROGRAM STARTS HERE #############################
