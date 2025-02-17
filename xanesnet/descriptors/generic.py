@@ -21,7 +21,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import numpy as np
 from ase import Atoms
-from abc import ABC
+from abc import ABC, abstractmethod
 
 ###############################################################################
 ################################## CLASSES ####################################
@@ -37,7 +37,7 @@ class _Descriptor(ABC):
 
             pass
     
-    @ABC.abstractmethod
+    @abstractmethod
     def transform(
         self,
         atoms: Atoms
@@ -56,7 +56,7 @@ class _Descriptor(ABC):
         
         pass 
 
-    @ABC.abstractmethod
+    @abstractmethod
     def get_len(self) -> int:
         """
         Returns:
