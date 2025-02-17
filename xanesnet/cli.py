@@ -20,33 +20,51 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 ###############################################################################
 
 import xanesnet
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
+from pathlib import Path
 
 ###############################################################################
 ############################## ARGUMENT PARSING ###############################
 ###############################################################################
 
-def parse_args(args: list):
+def parse_args() -> Namespace:
 
     p = ArgumentParser()
 
-    p.add_argument('-v', '--version', action = 'version', 
-        version = xanesnet.__version__)
+    p.add_argument(
+        '--version', '-v', action = 'version', version = xanesnet.__version__
+    )
     
-    sub_p = p.add_subparsers(dest = 'mode')
+    sub_p = p.add_subparsers(
+        dest = 'mode'
+    )
 
-    learn_p = sub_p.add_parser('learn')
-    learn_p.add_argument('inp_f', type = str, 
-        help = 'path to .json input file w/ variable definitions')
-    learn_p.add_argument('--no-save', dest = 'save', action = 'store_false',
-        help = 'toggles model directory creation and population to <off>')
+    train_p = sub_p.add_parser(
+        'train',
+        help = 'train a model'                       
+    )
+    train_p.add_argument(
+        'data_src', type = Path, nargs = '+', 
+        help = 'path to the input (X) and output (Y) data source(s)'
+    )
+    train_p.add_argument(
+        '--config', '-c', type = Path, default = None,
+        help = 'path to a .yaml configurational file'
+    )
 
-    predict_p = sub_p.add_parser('predict')
-    predict_p.add_argument('mdl_dir', type = str, 
-        help = 'path to populated model directory')
-    predict_p.add_argument('xyz_dir', type = str, 
-        help = 'path to .xyz input directory for prediction')
-    
+    predict_p = sub_p.add_parser(
+        'predict',
+        help = 'make predictions using your trained model'
+    )
+    predict_p.add_argument(
+        'data_src', type = Path,
+        help = 'path to the input (X) data source'
+    )
+    predict_p.add_argument(
+        'model', type = Path,
+        help = 'path to the trained model'
+    )
+
     args = p.parse_args()
 
     return args  
@@ -55,9 +73,9 @@ def parse_args(args: list):
 ################################ MAIN FUNCTION ################################
 ###############################################################################
 
-def main(args: list):
+def main():
 
-    pass
+    args = parse_args()
 
 ################################################################################
 ############################## PROGRAM STARTS HERE #############################
