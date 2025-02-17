@@ -21,13 +21,11 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import sys
 import json
-import importlib.resources
 
 from argparse import ArgumentParser
 
 import xanesnet
 
-from xanesnet import resources
 from xanesnet.core_learn import main as learn
 from xanesnet.core_predict import main as predict
 from xanesnet.utils import print_nested_dict
@@ -72,9 +70,6 @@ def main(args: list):
     else:
         args = parse_args(args)
         
-    banner = importlib.resources.read_text(resources, 'banner_open.txt')
-    print(banner, '\n')
-
     if args.mode == 'learn':
         print(f'>> loading JSON input @ {args.inp_f}\n')
         with open(args.inp_f) as f:
@@ -85,9 +80,6 @@ def main(args: list):
 
     if args.mode == 'predict':
             predict(args.mdl_dir, args.xyz_dir)
-        
-    banner = importlib.resources.read_text(resources, 'banner_close.txt')
-    print(banner)
 
 ################################################################################
 ############################## PROGRAM STARTS HERE #############################
