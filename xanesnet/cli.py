@@ -1,6 +1,6 @@
 """
-XANESNET
-Copyright (C) 2021  Conor D. Rankine
+XANESNET-REDUX
+Copyright (C) 2025  Conor D. Rankine
 
 This program is free software: you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software 
@@ -19,16 +19,8 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 ############################### LIBRARY IMPORTS ###############################
 ###############################################################################
 
-import sys
-import json
-
-from argparse import ArgumentParser
-
 import xanesnet
-
-from xanesnet.core_learn import main as learn
-from xanesnet.core_predict import main as predict
-from xanesnet.utils import print_nested_dict
+from argparse import ArgumentParser
 
 ###############################################################################
 ############################## ARGUMENT PARSING ###############################
@@ -65,28 +57,14 @@ def parse_args(args: list):
 
 def main(args: list):
 
-    if len(args) == 0:
-        sys.exit()
-    else:
-        args = parse_args(args)
-        
-    if args.mode == 'learn':
-        print(f'>> loading JSON input @ {args.inp_f}\n')
-        with open(args.inp_f) as f:
-            inp = json.load(f)
-        print_nested_dict(inp, nested_level = 1)
-        print('')
-        learn(**inp, save = args.save)
-
-    if args.mode == 'predict':
-            predict(args.mdl_dir, args.xyz_dir)
+    pass
 
 ################################################################################
 ############################## PROGRAM STARTS HERE #############################
 ################################################################################
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    main()
 
 ################################################################################
 ############################### PROGRAM ENDS HERE ##############################
