@@ -28,6 +28,13 @@ from pathlib import Path
 ###############################################################################
 
 def parse_args() -> Namespace:
+    """
+    Parses command line arguments for `xanesnet:cli.py`.
+
+    Returns:
+        argparse.Namespace: Parsed command line arguments as an
+        argparse.Namespace object that holds the arguments as attributes.
+    """
 
     p = ArgumentParser()
 
