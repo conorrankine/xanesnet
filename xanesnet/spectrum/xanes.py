@@ -1,6 +1,6 @@
 """
-XANESNET
-Copyright (C) 2021  Conor D. Rankine
+XANESNET-REDUX
+Copyright (C) 2025  Conor D. Rankine
 
 This program is free software: you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software 
@@ -288,3 +288,73 @@ def _calc_arctangent_conv_width(
     )
   
     return g
+
+class XANESSpectrumTransformer():
+    """
+    A class for carrying out sequential preprocessing transforms, e.g.,
+    shifting, slicing, scaling, interpolating, and convolution, on XANES
+    spectra; to be used as part of a data loading/preproccesing pipeline,
+    e.g., in `xanesnet/datasets.py`, and to provide a common interface
+    matching the `_Descriptor` class in `xanesnet/descriptors/` (e.g., by
+    exposing the `.transform()` and `.get_len()` methods).
+    """
+
+    def __init__(
+        self,
+        e_min: float = -30.0,
+        e_max: float = 120.0,
+        n_bins: int = 150
+    ):
+        """
+        Args:
+            e_min (float, optional): Minimum energy bound (in eV) for the
+                spectral window/slice relative to the X-ray absorption edge.
+                Defaults to -30.0.
+            e_max (float, optional): Maximum energy bound (in eV) for the
+                spectral window/slice relative to the X-ray absorption edge.
+                Defaults to 120.0.
+            n_bins (int, optional): Number of discrete energy bins for the
+                spectral window/slice. Defaults to 150.
+        """
+        
+        # TODO: sanity-check inputs and raise errors if necessary
+        self._e_min = e_min
+        self._e_max = e_max
+        self._n_bins = n_bins
+        self._e_aux = np.linspace(
+            self._e_min, self._e_max, self._n_bins
+        )
+
+    def transform(
+        self,
+        spectrum: 'XANES'
+    ) -> np.ndarray:
+        """
+        Transforms a XANES spectrum; carries out sequential preprocessing
+        transforms, e.g., shifting, slicing, scaling, interpolating, and
+        convolution on a XANES spectrum and returns the transformed spectral
+        intensity as a Numpy array (`np.ndarray` object).
+
+        Args:
+            spectrum (XANES): XANES spectrum.
+
+        Returns:
+            np.ndarray: Transformed XANES spectrum.
+        """
+
+        # TODO: implement sequential preprocessing transforms
+        spectrum_ = np.interp(
+            self._e_aux, spectrum.e - spectrum.e0, spectrum.m
+        )
+        
+        return spectrum_
+
+    def get_len(
+        self
+    ) -> int:
+        """
+        Returns:
+            int: Number of discrete energy bins.
+        """
+
+        return self._n_bins
