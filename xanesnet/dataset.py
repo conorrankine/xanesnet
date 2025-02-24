@@ -131,15 +131,17 @@ def load_x_data_from_dir(
 ) -> np.ndarray:
     """
     Loads input (X) data from a directory of .xyz files; .xyz files are loaded
-    as ase.Atoms objects and transformed into molecular descriptors by a
-    transformer (`x_transformer`) object that is expected to be an instance of
-    the `_Descriptor` class with the `.transform()` method implemented.
+    as ase.Atoms objects by the `ase.io.read()` function and transformed into
+    molecular descriptors by a transformer (`x_transformer`) that is expected
+    to be an instance of a `_Descriptor` class; a 2D Numpy (`np.ndarray`) array
+    is returned where each row corresponds to the transformed 1D Numpy array
+    representation of each file in the directory.
 
     Args:
         x_dir (Path): Source path for the input (X) data directory.
         x_transformer (_Descriptor, optional): Transformer for the input (X)
-            data; expects an instance of the `_Descriptor` class that has the
-            `.transform()` method implemented. Defaults to None.
+            data; expects an instance of the `_Descriptor` class. Defaults to
+            None.
 
     Returns:
         np.ndarray: Loaded input (X) data.
