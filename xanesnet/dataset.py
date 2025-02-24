@@ -219,10 +219,20 @@ def _load_data_from_dir(
                 f'no files found @ {data_dir}'
             )
         n_features = data_transformer.get_len()
+        if n_features == 0:
+            raise ValueError(
+                'check data transformer configuration; cannot create '
+                'zero-length feature vectors'
+            )
         data = np.full((n_samples, n_features), np.nan)
         for i, f in enumerate(data_dir.iterdir()):
-            data[i,:] = data_transformer.transform(
-                file_data_loader(f)
-            )
+            if f.is_file():
+                try:
+                    data[i,:] = data_transformer.transform(
+                        file_data_loader(f)
+                    )
+                except Exception:
+                    print(f'error encountered processing file: {f}')
+                    raise
 
     return data
