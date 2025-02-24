@@ -159,16 +159,18 @@ def load_y_data_from_dir(
 ) -> np.ndarray:
     """
     Loads target (Y) data from a directory of XANES spectrum files; XANES
-    spectrum files are loaded as xanesnet.XANES objects and transformed (e.g.
-    shifted, scaled, etc.) by a transformer (`y_transformer`) that is expected
-    to be an instance of the `XANESSpectrumTransformer` class with the
-    `.transform()` method implemented.
+    spectrum files are loaded as xanesnet.XANES objects by the 
+    `xanesnet.xanes.read()` function and transformed (e.g. shifted, scaled,
+    etc.) by a transformer (`y_transformer`) that is expected to be an
+    instance of the `XANESSpectrumTransformer` class; a 2D Numpy (`np.ndarray`)
+    array is returned where each row corresponds to the transformed 1D Numpy
+    array representation of each file in the directory.
 
     Args:
         y_dir (Path): Source path for the target (Y) data directory.
         y_transformer (XANESSpectrumTransformer, optional): Transformer for the
         target (Y) data; expects an instance of the `XANESSpectrumTransformer`
-        class that has the `.transform()` method implemented. Defaults to None.
+        class. Defaults to None.
 
     Returns:
         np.ndarray: Loaded target (Y) data.
