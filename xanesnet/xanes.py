@@ -20,6 +20,8 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 ###############################################################################
 
 import numpy as np
+from typing import Union
+from pathlib import Path
 
 ###############################################################################
 ################################## CLASSES ####################################
@@ -358,3 +360,33 @@ class XANESSpectrumTransformer():
         """
 
         return self._n_bins
+
+###############################################################################
+################################## FUNCTIONS ##################################
+###############################################################################
+
+def read(
+    filepath: Union[str, Path]
+) -> 'XANES':
+    """
+    Reads supported XANES spectrum files (e.g. FDMNES .txt output) and returns
+    a xanesnet.XANES object.
+
+    Args:
+        filepath (Union[str, Path]): XANES spectrum file.
+
+    Returns:
+        XANES: XANES spectrum.
+    """
+    
+    filepath = Path(filepath)
+    
+    with open(filepath, 'r') as f:
+        energy, absorption = np.loadtxt(
+            f, skiprows = 2, unpack = True
+        )
+
+    return XANES(
+        energy,
+        absorption
+    )
