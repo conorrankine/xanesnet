@@ -49,7 +49,7 @@ from xanesnet.utils import list_filestems
 from xanesnet.utils import print_cross_validation_scores
 from xanesnet.structure.rdc import RDC
 from xanesnet.structure.wacsf import WACSF
-from xanesnet.spectrum.xanes import XANES
+from xanesnet.xanes import XANES
 
 ###############################################################################
 ################################ MAIN FUNCTION ################################

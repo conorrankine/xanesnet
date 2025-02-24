@@ -35,7 +35,7 @@ from xanesnet.utils import unique_path
 from xanesnet.utils import list_filestems
 from xanesnet.structure.rdc import RDC
 from xanesnet.structure.wacsf import WACSF
-from xanesnet.spectrum.xanes import XANES
+from xanesnet.xanes import XANES
 
 ###############################################################################
 ################################ MAIN FUNCTION ################################
