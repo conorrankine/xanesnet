@@ -20,6 +20,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 ###############################################################################
 
 import numpy as np
+from ase import io
 from typing import Union, Optional, Callable
 from pathlib import Path
 from xanesnet.descriptors import _Descriptor
@@ -127,8 +128,37 @@ def load_x_data_from_dir(
     x_dir: Path,
     x_transformer: _Descriptor = None
 ) -> np.ndarray:
+    """
+    Loads input (X) data from a directory of .xyz files; .xyz files are loaded
+    as ase.Atoms objects and transformed into molecular descriptors by a
+    transformer (`x_transformer`) object that is expected to be an instance of
+    the `_Descriptor` class with the `.transform()` method implemented.
+
+    Args:
+        x_dir (Path): Source path for the input (X) data directory.
+        x_transformer (_Descriptor, optional): Transformer for the input (X)
+            data; expects an instance of the `_Descriptor` class that has the
+            `.transform()` method implemented. Defaults to None.
+
+    Returns:
+        np.ndarray: Loaded input (X) data.
+    """
     
-    pass
+    if x_transformer is None:
+        raise NotImplementedError(
+            'returning data as `ase.Atoms` objects (i.e. without '
+            'transformation) is not yet supported!'
+        )
+    else:
+        n_samples = sum(1 for f in x_dir.iterdir() if f.is_file())
+        n_features = x_transformer.get_len()
+        x = np.full((n_samples, n_features), np.nan)
+        for i, xyz_f in enumerate(x_dir.iterdir()):
+            x[i,:] = x_transformer.transform(
+                ase.io.read(xyz_f, format = 'xyz')
+            )
+
+    return x
 
 def load_y_data_from_dir(
     y_dir: Path,
