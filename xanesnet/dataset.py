@@ -19,6 +19,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 ############################### LIBRARY IMPORTS ###############################
 ###############################################################################
 
+import xanesnet as xn
 import numpy as np
 from ase import io
 from typing import Union, Optional, Callable
@@ -164,5 +165,35 @@ def load_y_data_from_dir(
     y_dir: Path,
     y_transformer: XANESSpectrumTransformer = None
 ) -> np.ndarray:
+    """
+    Loads target (Y) data from a directory of XANES spectrum files; XANES
+    spectrum files are loaded as xanesnet.XANES objects and transformed (e.g.
+    shifted, scaled, etc.) by a transformer (`y_transformer`) that is expected
+    to be an instance of the `XANESSpectrumTransformer` class with the
+    `.transform()` method implemented.
+
+    Args:
+        y_dir (Path): Source path for the target (Y) data directory.
+        y_transformer (XANESSpectrumTransformer, optional): Transformer for the
+        target (Y) data; expects an instance of the `XANESSpectrumTransformer`
+        class that has the `.transform()` method implemented. Defaults to None.
+
+    Returns:
+        np.ndarray: Loaded target (Y) data.
+    """
     
-    pass
+    if y_transformer is None:
+        raise NotImplementedError(
+            'returning data as `xanesnet.XANES` objects (i.e. without '
+            'transformation) is not yet supported!'
+        )
+    else:
+        n_samples = sum(1 for f in y_dir.iterdir() if f.is_file())
+        n_features = y_transformer.get_len()
+        y = np.full((n_samples, n_features), np.nan)
+        for i, xanes_f in enumerate(y_dir.iterdir()):
+            y[i,:] = y_transformer.transform(
+                xn.xanes.read(xanes_f)
+            )
+
+    return y
