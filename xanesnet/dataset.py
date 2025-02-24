@@ -214,6 +214,10 @@ def _load_data_from_dir(
         )
     else:
         n_samples = sum(1 for f in data_dir.iterdir() if f.is_file())
+        if n_samples == 0:
+            raise FileNotFoundError(
+                f'no files found @ {data_dir}'
+            )
         n_features = data_transformer.get_len()
         data = np.full((n_samples, n_features), np.nan)
         for i, f in enumerate(data_dir.iterdir()):
