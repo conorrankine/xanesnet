@@ -21,7 +21,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import xanesnet as xn
 import numpy as np
-from ase import io
+import ase
 from typing import Union, Optional, Callable
 from pathlib import Path
 from xanesnet.descriptors import _Descriptor
