@@ -197,3 +197,42 @@ def load_y_data_from_dir(
             )
 
     return y
+
+def _load_data_from_dir(
+    dir_: Path,
+    transformer: Union[_Descriptor, XANESSpectrumTransformer],
+    file_data_loader: Callable
+) -> np.ndarray:
+    """
+    Loads data from a directory of files; files are loaded as appropriate
+    objects by the `file_data_loader` function and transformed by a
+    transformer `transformer` that implements the `.transform()` method
+    into 1D Numpy (`np.ndarray) arrays; a 2D Numpy array is returned where
+    each row corresponds to the transformed 1D Numpy array representation of
+    each file in the directory. 
+
+    Args:
+        dir_ (Path): Source path for the data directory.
+        transformer (Union[_Descriptor, XANESSpectrumTransformer]): Transformer
+            for the data; expects the `.transform()` method is implemented.
+        file_data_loader (Callable): Function for loading files as objects that
+            `transformer` can work with via the `.transform()` method.
+
+    Returns:
+        np.ndarray: Loaded data.
+    """
+    
+    if transformer is None:
+        raise NotImplementedError(
+            'error'
+        )
+    else:
+        n_samples = sum(1 for f in dir_.iterdir() if f.is_file())
+        n_features = transformer.get_len()
+        data = np.full((n_samples, n_features), np.nan)
+        for i, f in enumerate(dir_.iterdir()):
+            data[i,:] = transformer.transform(
+                file_data_loader(f)
+            )
+
+    return data
