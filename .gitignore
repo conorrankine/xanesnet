@@ -1,3 +1,6 @@
 build
 xanesnet.egg-info/
 xanesnet/__pycache__/
+xanesnet/descriptors/__pycache__/
+xanesnet/fdmnes_tools/__pycache__/
+xanesnet/tmqm_tools/__pycache__/
