@@ -98,7 +98,8 @@ def main() -> None:
 
     if args.range == 'auto':
         auto_ranges = {
-            'K': '-30.0 0.2 60.0 0.5 120.0 1.0 300.0'
+            'K': '-30.0 0.2 60.0 0.5 120.0 1.0 300.0',
+            'L23': '-15.0 0.1 30.0 0.2 45.0 0.5 60.0'
         }
         try:
             args.range = auto_ranges[args.edge]
@@ -119,6 +120,9 @@ def main() -> None:
         'quadrupole': None,
         'convolution': None
     }
+
+    if args.edge == 'L23':
+        params.update({'spinorbit': None})
 
     with open(f'{args.input_f.stem}.in', 'w') as f:
         write_fdmnes_in(f, atoms, **params)
