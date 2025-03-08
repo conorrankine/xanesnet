@@ -1,5 +1,5 @@
 """
-XANESNET
+XANESNET-REDUX
 Copyright (C) 2025  Conor D. Rankine
 
 This program is free software: you can redistribute it and/or modify it under
