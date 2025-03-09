@@ -305,7 +305,8 @@ class XANESSpectrumTransformer():
         self,
         e_min: float = -30.0,
         e_max: float = 120.0,
-        n_bins: int = 150
+        n_bins: int = 150,
+        scale: bool = True
     ):
         """
         Args:
@@ -317,6 +318,8 @@ class XANESSpectrumTransformer():
                 Defaults to 120.0.
             n_bins (int, optional): Number of discrete energy bins for the
                 spectral window/slice. Defaults to 150.
+            scale (bool, optional): Toggles spectrum scaling using the
+                'edge-step' approach. Defaults to `True`.
         """
         
         # TODO: sanity-check inputs and raise errors if necessary
@@ -326,6 +329,8 @@ class XANESSpectrumTransformer():
         self._e_aux = np.linspace(
             self._e_min, self._e_max, self._n_bins
         )
+
+        self.scale = scale
 
     def transform(
         self,
@@ -343,6 +348,9 @@ class XANESSpectrumTransformer():
         Returns:
             np.ndarray: Transformed XANES spectrum.
         """
+
+        if self.scale:
+            spectrum.scale()
 
         # TODO: implement sequential preprocessing transforms
         spectrum_ = np.interp(
