@@ -59,6 +59,10 @@ def load_dataset_from_data_src(
             `XANESSpectrumTransformer` class that has the `.transform()` method
             implemented. Defaults to None.
 
+    Raises:
+        ValueError: If a different number of records are loaded from `x_src`
+            and `y_src` (i.e. len(`x`) != len(`y`)) when `y_src` is not `None`.
+
     Returns:
         tuple[np.ndarray, Optional[np.ndarray]]: Tuple of input (X) and
             (optionally) output (Y) data.
@@ -76,7 +80,13 @@ def load_dataset_from_data_src(
         load_y_data_from_dir,
     ) if y_src else None
 
-    return x, y
+    if (y is not None) and not (len(x) == len(y)):
+        raise ValueError(
+            f'loaded a different number of records from `x_src` ({len(x)}) '
+            f'and `y_src` ({len(y)}); double-check your data sources'
+        )
+    else:
+        return x, y
 
 def _load_from_data_src(
     data_src: Path,
