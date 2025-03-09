@@ -21,7 +21,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import xanesnet as xn
 import numpy as np
-import ase
+from ase import io
 from typing import Union, Optional, Callable
 from pathlib import Path
 from xanesnet.descriptors import _Descriptor
@@ -150,7 +150,7 @@ def load_x_data_from_dir(
     x = _load_data_from_dir(
         x_dir,
         data_transformer = x_transformer,
-        file_data_loader = ase.io.read
+        file_data_loader = io.read
     )
     
     return x
@@ -229,7 +229,7 @@ def _load_data_from_dir(
                 'zero-length feature vectors'
             )
         data = np.full((n_samples, n_features), np.nan)
-        for i, f in enumerate(data_dir.iterdir()):
+        for i, f in enumerate(sorted(data_dir.iterdir())):
             if f.is_file():
                 try:
                     data[i,:] = data_transformer.transform(
