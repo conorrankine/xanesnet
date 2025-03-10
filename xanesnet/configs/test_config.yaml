@@ -20,6 +20,13 @@ spectrum:
       ef: -5.0
       ec: 30.0
       el: 30.0
+
+feature_selection:
+  threshold: 0.0
+
+feature_scaling:
+  with_mean: True
+  with_std: True
       
 model:
   hidden_layer_sizes:

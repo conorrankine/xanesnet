@@ -28,6 +28,10 @@ from xanesnet.config import load_config
 from xanesnet.dataset import load_dataset_from_data_src
 from xanesnet.descriptors import RDC, WACSF
 from xanesnet.xanes import XANESSpectrumTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.feature_selection import VarianceThreshold
+from sklearn.preprocessing import StandardScaler
+from sklearn.neural_network import MLPRegressor
 
 ###############################################################################
 ################################## FUNCTIONS ##################################
@@ -89,6 +93,30 @@ def train(
     for data, label in zip((x, y), ('x', 'y')):
         with open(output_dir / f'{label}.npy', 'wb') as f:
             save(f, data)
+
+    print('neural network parameters:')
+    print('-' * 35)
+    for key, val in config["model"].items():
+        if key != 'hidden_layer_sizes':
+            print(f'{key:<25}{val:>10}')
+    print('-' * 35 + '\n')    
+
+    pipeline = Pipeline([
+        ('feature_selection', VarianceThreshold(
+            **config['feature_selection'])
+        ),
+        ('feature_scaling', StandardScaler(
+            **config['feature_scaling'])
+        ),
+        ('model', MLPRegressor(
+            **config['model'])
+        )
+    ])
+
+    pipeline.fit(x, y)
+
+    with open(output_dir / 'pipeline.pkl', 'wb') as f:
+        pickle.dump(pipeline, f)
 
 def predict(
     data_src: Union[Path, list[Path]],
