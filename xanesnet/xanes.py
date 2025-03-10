@@ -414,7 +414,8 @@ def read(
 
     readers = {
         'csv': _read_from_csv,
-        'txt': _read_from_txt
+        'txt': _read_from_txt,
+        'bav': _read_from_bav
     }
     
     with open(filepath, 'r') as f:
@@ -501,6 +502,15 @@ def _read_from_txt(
     )
 
     return XANES(energy, absorption)
+
+def _read_from_bav(
+    f: TextIO
+) -> 'XANES':
+    
+    raise NotImplementedError(
+        'support for reading energy/absorption data from FDMNES `_bav.txt` '
+        'files is coming in a future version of XANESNET'
+    )
 
 def _write_as_csv(
     f: TextIO,
