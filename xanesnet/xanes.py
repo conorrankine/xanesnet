@@ -438,7 +438,8 @@ def write(
     filepath = Path(filepath)
 
     writers = {
-        'csv': _write_as_csv
+        'csv': _write_as_csv,
+        'txt': _write_as_txt
     }
 
     with open(filepath, 'w') as f:
@@ -458,12 +459,31 @@ def _write_as_csv(
     Writes energy/absorption data from a xanesnet.XANES object in .csv format.
 
     Args:
-        f (TextIO): XANES spectrum file.
+        f (TextIO): XANES spectrum file to write energy/absorption data to.
         spectrum (XANES): XANES spectrum.
     """
     
-    data = np.column_stack([spectrum.e, spectrum.m])
+    data = np.column_stack((spectrum.e, spectrum.m))
     header = 'energy,absorption'
     np.savetxt(
-        f, data, delimiter = ',', header = header, fmt = ['%d', '%d']     
+        f, data, delimiter = ',', header = header, fmt = ('%.3f', '%.6f')
+    )
+
+def _write_as_txt(
+    f: TextIO,
+    spectrum: 'XANES'
+) -> None:
+    """
+    Writes energy/absorption data from a xanesnet.XANES object in 'mock'
+    FDMNES-style (.txt) format.
+
+    Args:
+        f (TextIO): XANES spectrum file to write energy/absorption data to.
+        spectrum (XANES): XANES spectrum.
+    """
+    
+    data = np.column_stack((spectrum.e, spectrum.m))
+    header = f'  {spectrum.e0:.3f} = e_edge\n  energy      <xanes>'
+    np.savetxt(
+        f, data, delimiter = '  ', header = header, fmt = ('%10.2f', '%15.7e')
     )
