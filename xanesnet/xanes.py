@@ -482,6 +482,26 @@ def _read_from_csv(
 
     return XANES(energy, absorption)
 
+def _read_from_txt(
+    f: TextIO
+) -> 'XANES':
+    """
+    Reads energy/absorption data from an FDMNES-style (.txt) file and returns a
+    xanesnet.XANES object.
+
+    Args:
+        f (TextIO): FDMNES-style .txt file to read energy/absorption data from.
+
+    Returns:
+        XANES: XANES spectrum.
+    """
+    
+    energy, absorption = np.loadtxt(
+        f, skiprows = 2, unpack = True
+    )
+
+    return XANES(energy, absorption)
+
 def _write_as_csv(
     f: TextIO,
     spectrum: 'XANES'
