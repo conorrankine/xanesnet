@@ -55,11 +55,10 @@ def train(
         'wacsf': WACSF
     }
    
-    print(f'{config["descriptor"]["type"].upper()} parameters:')
-    print('-' * 35)
-    for key, val in config["descriptor"]["params"].items():
-        print(f'{key:<25}{val:>10}')
-    print('-' * 35 + '\n')
+    print(f'\n{config["descriptor"]["type"].upper()} parameters:')
+    utils.print_nested_dict(
+        config["descriptor"]["params"]
+    )
 
     descriptor = descriptors.get(config["descriptor"]["type"])(
         **config["descriptor"]["params"]
@@ -68,11 +67,10 @@ def train(
     with open(output_dir / 'descriptor.pkl', 'wb') as f:
         pickle.dump(descriptor, f)
 
-    print('spectrum preprocessing parameters:')
-    print('-' * 35)
-    for key, val in config["spectrum"]["params"].items():
-        print(f'{key:<25}{val:>10}')
-    print('-' * 35 + '\n')
+    print('\nspectrum preprocessing parameters:')
+    utils.print_nested_dict(
+        config["spectrum"]["params"]
+    )
 
     spectrum_transformer = XANESSpectrumTransformer(
         **config["spectrum"]["params"]
@@ -81,7 +79,7 @@ def train(
     with open(output_dir / 'spectrum_transformer.pkl', 'wb') as f:
         pickle.dump(spectrum_transformer, f)
 
-    print('loading + preprocessing data records from source...')
+    print('\nloading + preprocessing data records from source...')
     x, y = load_dataset_from_data_src(
         *data_src,
         x_transformer = descriptor,
@@ -94,12 +92,10 @@ def train(
         with open(output_dir / f'{label}.npy', 'wb') as f:
             save(f, data)
 
-    print('neural network parameters:')
-    print('-' * 35)
-    for key, val in config["model"].items():
-        if key != 'hidden_layer_sizes':
-            print(f'{key:<25}{val:>10}')
-    print('-' * 35 + '\n')    
+    print('\nneural network parameters:')
+    utils.print_nested_dict(
+        config["model"]
+    )
 
     pipeline = Pipeline([
         ('feature_selection', VarianceThreshold(
