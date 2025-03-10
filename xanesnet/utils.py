@@ -1,5 +1,5 @@
 """
-XANESNET
+XANESNET-REDUX
 Copyright (C) 2021  Conor D. Rankine
 
 This program is free software: you can redistribute it and/or modify it under
@@ -26,9 +26,25 @@ from typing import Iterable
 ################################## FUNCTIONS ##################################
 ###############################################################################
 
-def unique_path(path: Path, base_name: str) -> Path:
-    # returns a unique path from `p`/`base_name`_001, `p`/`base_name`_002,
-    # `p`/`base_name`_003, etc.
+def unique_path(
+    path: Path,
+    base_name: str
+) -> Path:
+    """
+    Returns a unique (i.e., non-existant) file/directory path of the type
+    `path`/`base_name`_`suffix` for a specified parent directory by appending
+    an incremental numeric suffix to a base name; `suffix` starts at `001` and
+    increments by 1 until a unique file/directory path is found.
+
+    Args:
+        path (Path): Path to a parent directory.
+        base_name (str): Base file/directory name for the unique file/directory
+            path.
+
+    Returns:
+        Path: Unique file/directory path that does not already exist in the
+            parent directory.
+    """
 
     n = 0
     while True:
