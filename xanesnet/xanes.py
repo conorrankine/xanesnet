@@ -462,6 +462,26 @@ def write(
                 'absorption data'
             ) from None
 
+def _read_from_csv(
+    f: TextIO
+) -> 'XANES':
+    """
+    Reads energy/absorption data from a .csv file and returns a xanesnet.XANES
+    object.
+
+    Args:
+        f (TextIO): .csv file to read energy/absorption data from.
+
+    Returns:
+        XANES: XANES spectrum.
+    """
+    
+    energy, absorption = np.loadtxt(
+        f, delimiter = ',', unpack = True
+    )
+
+    return XANES(energy, absorption)
+
 def _write_as_csv(
     f: TextIO,
     spectrum: 'XANES'
