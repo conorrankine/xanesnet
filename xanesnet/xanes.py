@@ -20,8 +20,8 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 ###############################################################################
 
 import numpy as np
-from typing import Union
 from pathlib import Path
+from typing import Union, TextIO
 
 ###############################################################################
 ################################## CLASSES ####################################
@@ -393,7 +393,7 @@ def read(
     filepath: Union[str, Path]
 ) -> 'XANES':
     """
-    Reads supported XANES spectrum files (e.g. FDMNES .txt output) and returns
+    Reads supported XANES spectrum files (e.g., FDMNES .txt output) and returns
     a xanesnet.XANES object.
 
     Args:
@@ -413,4 +413,57 @@ def read(
     return XANES(
         energy,
         absorption
+    )
+
+def write(
+    filepath: Union[str, Path],
+    spectrum: 'XANES',
+    format: str = 'csv'
+) -> None:
+    """
+    Writes energy/absorption data from a xanesnet.XANES object in supported
+    file formats (e.g., .csv, .txt, etc.).
+
+    Args:
+        filepath (Union[str, Path]): XANES spectrum file.
+        spectrum (XANES): XANES spectrum.
+        format (str, optional): File format for writing energy/absorption data
+            (e.g., .csv, .txt, etc.). Defaults to 'csv'.
+
+    Raises:
+        ValueError: If the file format for writing energy/absorption data is
+            not supported.
+    """
+    
+    filepath = Path(filepath)
+
+    writers = {
+        'csv': _write_as_csv
+    }
+
+    with open(filepath, 'w') as f:
+        try:
+            writers[format](f, spectrum)
+        except KeyError:
+            raise ValueError(
+                f'{format} is not a supported file format for writing energy/'
+                'absorption data'
+            ) from None
+
+def _write_as_csv(
+    f: TextIO,
+    spectrum: 'XANES'
+) -> None:
+    """
+    Writes energy/absorption data from a xanesnet.XANES object in .csv format.
+
+    Args:
+        f (TextIO): XANES spectrum file.
+        spectrum (XANES): XANES spectrum.
+    """
+    
+    data = np.column_stack([spectrum.e, spectrum.m])
+    header = 'energy,absorption'
+    np.savetxt(
+        f, data, delimiter = ',', header = header, fmt = ['%d', '%d']     
     )
