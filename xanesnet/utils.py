@@ -19,9 +19,8 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 ############################### LIBRARY IMPORTS ###############################
 ###############################################################################
 
-import numpy as np
-
 from pathlib import Path
+from typing import Iterable
 
 ###############################################################################
 ################################## FUNCTIONS ##################################
@@ -37,86 +36,76 @@ def unique_path(path: Path, base_name: str) -> Path:
         unique_path = path / (base_name + f'_{n:03d}')
         if not unique_path.exists():
             return unique_path
+        
+def print_nested_dict(
+    dict_: dict,
+    key_width: int = 35,
+    val_width: int = 25,
+    indent: int = 0
+) -> None:
+    """
+    Prints a formatted table of `key`:`val` pairs contained in a (nested)
+    dictionary, exploring (nested) subdictionaries recursively and printing
+    the `key`:`val` pairs contained within with key indentation.
 
-def linecount(f: Path) -> int:
-    # returns the linecount for a file (`f`)
+    Args:
+        dict_ (dict): Dictionary.
+        key_width (int, optional): Width of the column containing dictionary
+            keys (`key`) for printout. Defaults to 35.
+        val_width (int, optional): Width of the column containing dictionary
+            values (`val`) for printout. Defaults to 25.
+        indent (int, optional): Indentation level. Defaults to 0.
 
-    with open(f, 'r') as f_:
-        return len([l for l in f_])
+    Raises:
+        TypeError: If a `key`:`val` pair has a value of an unsupported type.
+    """
+    
+    indent_str = '  ' * indent
+    key_width = max(10, key_width - (2 * indent))
 
-def list_files(d: Path, with_ext: bool = True) -> list:
-    # returns a list of files (as POSIX paths) found in a directory (`d`);
-    # 'hidden' files are always omitted and, if with_ext == False, file
-    # extensions are also omitted
-
-    return [(f if with_ext else f.with_suffix('')) 
-        for f in d.iterdir() if f.is_file() and not f.stem.startswith('.')]
-
-def list_filestems(d: Path) -> list:
-    # returns a list of file stems (as strings) found in a directory (`d`);
-    # 'hidden' files are always omitted
-
-    return [f.stem for f in list_files(d)]
-
-def str_to_numeric(str_: str):
-    # returns the numeric (floating-point or integer) cast of `str_` if
-    # cast is allowed, otherwise returns `str_`
-
-    try:
-        return float(str_) if '.' in str_ else int(str_)
-    except ValueError:
-        return str_
-
-def print_nested_dict(dict_: dict, nested_level: int = 0):
-    # prints the key:value pairs in a dictionary (`dict`) in the format
-    # '>> key :: value'; iterates recursively through any subdictionaries,
-    # indenting with two white spaces for each sublevel (`nested level`)
-
+    if indent == 0:
+        print('-' * (key_width + val_width))
+    
     for key, val in dict_.items():
-        if not isinstance(val, dict):
-            if isinstance(val, list):
-                val = f'[{val[0]}, ..., {val[-1]}]'
-            print('  ' * nested_level + f'>> {key} :: {val}')
-        else:
-            print('  ' * nested_level + f'>> {key}')
-            print_nested_dict(val, nested_level = nested_level + 1)
+        try:
+            print(
+                f'{indent_str}{key:<{key_width}}{val:>{val_width}}'
+            )
+        except TypeError:
+            if isinstance(val, (list, tuple)):
+                val = _iterable_to_str(val)
+                print(
+                    f'{indent_str}{key:<{key_width}}{val:>{val_width}}'
+                    )
+            elif isinstance(val, dict):
+                print(
+                    f'{indent_str}{key:<{key_width}}'
+                )
+                print_nested_dict(
+                    val,
+                    key_width = key_width,
+                    val_width = val_width,
+                    indent = indent + 1
+                )
+            else:
+                raise TypeError(
+                    f'can\'t handle value of type {type(val)} for key `{key}`'
+                )
 
-    return 0
+    if indent == 0:
+        print('-' * (key_width + val_width))
 
-def print_cross_validation_scores(scores: dict):
-    # prints a summary table of the scores from k-fold cross validation;
-    # summarises the elapsed time and train/test metric scores for each k-fold
-    # with overall k-fold cross validation statistics (mean and std. dev.)
-    # using the `scores` dictionary returned from `cross_validate`
+def _iterable_to_str(
+    iterable: Iterable
+) -> str:
+    """
+    Converts an iterable (e.g., list, tuple, etc.) to a comma-separated string.
 
-    print('')
-    print('>> summarising scores from k-fold cross validation...')
-    print('')
+    Args:
+        iterable (Iterable): Iterable to convert to a comma-separated string.
 
-    print('*' * 48)
+    Returns:
+        str: Comma-separated string with each of the items in the iterable.
+    """
     
-    fmt = '{:<10s}{:>6s}{:>16s}{:>16s}'
-    print(fmt.format('k-fold', 'time', 'train', 'test'))
-    
-    print('*' * 48)
-
-    fmt = '{:<10.0f}{:>5.1f}s{:>16.8f}{:>16.8f}'
-    for kf, (t, train, test) in enumerate(zip(
-        scores['fit_time'], scores['train_score'], scores['test_score'])):
-        print(fmt.format(kf, t, np.absolute(train), np.absolute(test)))
-
-    print('*' * 48)
-
-    fmt = '{:<10s}{:>5.1f}s{:>16.8f}{:>16.8f}'
-    means_ = (np.mean(np.absolute(scores[score])) 
-        for score in ('fit_time', 'train_score', 'test_score'))
-    print(fmt.format('mean', *means_))
-    stdevs_ = (np.std(np.absolute(scores[score])) 
-        for score in ('fit_time', 'train_score', 'test_score'))
-    print(fmt.format('std. dev.', *stdevs_))
-
-    print('*' * 48)
-
-    print('')
-
-    return 0
+    return ', '.join(str(item) for item in iterable)
