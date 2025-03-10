@@ -306,7 +306,9 @@ class XANESSpectrumTransformer():
         e_min: float = -30.0,
         e_max: float = 120.0,
         n_bins: int = 150,
-        scale: bool = True
+        scale: bool = True,
+        convolve: bool = True,
+        convolution_params: dict = None
     ):
         """
         Args:
@@ -320,6 +322,13 @@ class XANESSpectrumTransformer():
                 spectral window/slice. Defaults to 150.
             scale (bool, optional): Toggles spectrum scaling using the
                 'edge-step' approach. Defaults to `True`.
+            convolve (bool, optional): Toggles spectrum convolution with a
+                fixed-width or energy-dependent-width Lorentzian filter.
+                Defaults to `True`.
+            convolution_params (dict, optional): Dictionary of convolution
+                parameters / kwargs that are passed to the `.convolve()`
+                method to define the convolution type and Lorentzian filter.
+                Defaults to `None`.
         """
         
         # TODO: sanity-check inputs and raise errors if necessary
@@ -331,6 +340,11 @@ class XANESSpectrumTransformer():
         )
 
         self.scale = scale
+
+        self.convolve = convolve
+        self.convolution_params = (
+            convolution_params if convolution_params is not None else {}
+        )
 
     def transform(
         self,
@@ -349,10 +363,12 @@ class XANESSpectrumTransformer():
             np.ndarray: Transformed XANES spectrum.
         """
 
+        if self.convolve:
+            spectrum.convolve(**self.convolution_params)
+
         if self.scale:
             spectrum.scale()
 
-        # TODO: implement sequential preprocessing transforms
         spectrum_ = np.interp(
             self._e_aux, spectrum.e - spectrum.e0, spectrum.m
         )
