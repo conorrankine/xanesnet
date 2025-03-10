@@ -390,7 +390,8 @@ class XANESSpectrumTransformer():
 ###############################################################################
 
 def read(
-    filepath: Union[str, Path]
+    filepath: Union[str, Path],
+    format: str = None
 ) -> 'XANES':
     """
     Reads supported XANES spectrum files (e.g., FDMNES .txt output) and returns
@@ -398,22 +399,32 @@ def read(
 
     Args:
         filepath (Union[str, Path]): XANES spectrum file.
+        format(str, optional): File format for reading energy/absorption data
+            (e.g., .csv, .txt, .bav, etc.). If `None`, the file format is
+            determined from the file extension. Defaults to `None`.
 
     Returns:
         XANES: XANES spectrum.
     """
     
     filepath = Path(filepath)
+
+    if format is None:
+        format = filepath.suffix.lstrip('.')
+
+    readers = {
+        'csv': _read_from_csv,
+        'txt': _read_from_txt
+    }
     
     with open(filepath, 'r') as f:
-        energy, absorption = np.loadtxt(
-            f, skiprows = 2, unpack = True
-        )
-
-    return XANES(
-        energy,
-        absorption
-    )
+        try:
+            return readers[format](f)
+        except KeyError:
+            raise ValueError(
+                f'{format} is not a supported file format for reading energy/'
+                'absorption data'
+            ) from None
 
 def write(
     filepath: Union[str, Path],
