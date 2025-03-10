@@ -23,7 +23,9 @@ import pickle
 from typing import Union
 from pathlib import Path
 from . import utils
+from numpy import save
 from xanesnet.config import load_config
+from xanesnet.dataset import load_dataset_from_data_src
 from xanesnet.descriptors import RDC, WACSF
 from xanesnet.xanes import XANESSpectrumTransformer
 
@@ -74,6 +76,19 @@ def train(
 
     with open(output_dir / 'spectrum_transformer.pkl', 'wb') as f:
         pickle.dump(spectrum_transformer, f)
+
+    print('loading + preprocessing data records from source...')
+    x, y = load_dataset_from_data_src(
+        *data_src,
+        x_transformer = descriptor,
+        y_transformer = spectrum_transformer
+    )
+    for data, data_src_ in zip((x, y), data_src):
+        print(f'loaded {len(data)} records @ {data_src_}')
+
+    for data, label in zip((x, y), ('x', 'y')):
+        with open(output_dir / f'{label}.npy', 'wb') as f:
+            save(f, data)
 
 def predict(
     data_src: Union[Path, list[Path]],
