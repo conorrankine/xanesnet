@@ -6,6 +6,21 @@ descriptor:
     dr: 0.05
     alpha: 10.0
 
+spectrum:
+  params:
+    e_min: -30.0
+    e_max: 120.0
+    n_bins: 300
+    scale: True
+    convolve: True
+    convolution_params:
+      conv_type: arctangent_model
+      width: 2.0
+      width_max: 15.0
+      ef: -5.0
+      ec: 30.0
+      el: 30.0
+      
 model:
   hidden_layer_sizes:
     - 100

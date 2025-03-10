@@ -25,6 +25,7 @@ from pathlib import Path
 from . import utils
 from xanesnet.config import load_config
 from xanesnet.descriptors import RDC, WACSF
+from xanesnet.xanes import XANESSpectrumTransformer
 
 ###############################################################################
 ################################## FUNCTIONS ##################################
@@ -60,6 +61,19 @@ def train(
 
     with open(output_dir / 'descriptor.pkl', 'wb') as f:
         pickle.dump(descriptor, f)
+
+    print('spectrum preprocessing parameters:')
+    print('-' * 35)
+    for key, val in config["spectrum"]["params"].items():
+        print(f'{key:<25}{val:>10}')
+    print('-' * 35 + '\n')
+
+    spectrum_transformer = XANESSpectrumTransformer(
+        **config["spectrum"]["params"]
+    )
+
+    with open(output_dir / 'spectrum_transformer.pkl', 'wb') as f:
+        pickle.dump(spectrum_transformer, f)
 
 def predict(
     data_src: Union[Path, list[Path]],
