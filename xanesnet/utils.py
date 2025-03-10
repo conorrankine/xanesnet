@@ -28,30 +28,32 @@ from typing import Iterable
 
 def unique_path(
     path: Path,
-    base_name: str
+    prefix: str,
+    extension: str = None
 ) -> Path:
     """
-    Returns a unique (i.e., non-existant) file/directory path of the type
-    `path`/`base_name`_`suffix` for a specified parent directory by appending
-    an incremental numeric suffix to a base name; `suffix` starts at `001` and
-    increments by 1 until a unique file/directory path is found.
+    Returns a unique file/directory path for a specified parent directory;
+    `number` starts at `001` and increments by 1 until a unique file/directory
+    path of the type `path`/`prefix`_`number`.`extension` is found.
 
     Args:
-        path (Path): Path to a parent directory.
-        base_name (str): Base file/directory name for the unique file/directory
-            path.
+        path (Path): Path to the parent directory.
+        prefix (str): Prefix for the unique path.
+        extension (str): Extension for the unique path; defaults to `None`.
 
     Returns:
         Path: Unique file/directory path that does not already exist in the
             parent directory.
     """
 
-    n = 0
+    extension = f'.{extension}' if extension else ''
+
+    n = 1
     while True:
-        n += 1
-        unique_path = path / (base_name + f'_{n:03d}')
+        unique_path = path / (prefix + f'_{n:03d}' + extension) 
         if not unique_path.exists():
             return unique_path
+        n += 1
         
 def print_nested_dict(
     dict_: dict,
