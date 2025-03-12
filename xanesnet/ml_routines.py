@@ -23,7 +23,8 @@ import pickle
 from pathlib import Path
 from . import utils
 from tqdm import tqdm
-from numpy import save
+from numpy import save, load
+from numpy.random import RandomState
 from xanesnet.config import load_config
 from xanesnet.dataset import load_dataset_from_data_src
 from xanesnet.descriptors import RDC, WACSF
@@ -47,6 +48,8 @@ def train(
     config = load_config(
         config if config is not None else 'xanesnet_2021.yaml'
     )
+
+    rng = RandomState(seed = config["random_state"]["seed"])
 
     output_dir = utils.unique_path(Path.cwd(), 'xanesnet_output')
     if not output_dir.is_dir():
@@ -109,7 +112,7 @@ def train(
             **config['feature_scaling'])
         ),
         ('model', MLPRegressor(
-            **config['model'])
+            **config['model'], random_state = rng)
         )
     ])
 
