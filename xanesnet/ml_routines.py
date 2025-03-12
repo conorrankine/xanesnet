@@ -27,7 +27,7 @@ from numpy import save
 from xanesnet.config import load_config
 from xanesnet.dataset import load_dataset_from_data_src
 from xanesnet.descriptors import RDC, WACSF
-from xanesnet.xanes import XANESSpectrumTransformer
+from xanesnet.xanes import XANES, XANESSpectrumTransformer, read, write
 from xanesnet.metrics import mean_squared_error, mean_absolute_error
 from sklearn.pipeline import Pipeline
 from sklearn.feature_selection import VarianceThreshold
@@ -132,4 +132,30 @@ def predict(
     model: Path
 ):
 
-    pass
+    with open(model / 'descriptor.pkl', 'rb') as f:
+        descriptor = pickle.load(f)
+
+    with open(model / 'spectrum_transformer.pkl', 'rb') as f:
+        spectrum_transformer = pickle.load(f)
+
+    print('\nloading + preprocessing data records from source...')
+    x, _ = load_dataset_from_data_src(
+        data_src,
+        x_transformer = descriptor
+    )
+    print(f'...loaded {len(x)} records @ {data_src}')
+
+    with open(model / 'pipeline.pkl', 'rb') as f:
+        pipeline = pickle.load(f)
+
+    y_predicted = pipeline.predict(x)
+
+    output_dir = utils.unique_path(Path.cwd(), 'xanesnet_output')
+    if not output_dir.is_dir():
+        output_dir.mkdir(parents = True)
+
+    print('\noutputting predictions...')
+    for i, y_predicted_ in enumerate(y_predicted, start = 1):
+        xanes = XANES(spectrum_transformer._e_aux, y_predicted_, e0 = 0.0)
+        write(output_dir / f'{i:03d}.csv', xanes, format = 'csv')
+    print(f'...output {i} predictions @ {output_dir}/\n')
