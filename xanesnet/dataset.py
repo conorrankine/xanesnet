@@ -36,7 +36,8 @@ def load_dataset_from_data_src(
     x_src: Path,
     y_src: Path = None,
     x_transformer: _Descriptor = None,
-    y_transformer: XANESSpectrumTransformer = None
+    y_transformer: XANESSpectrumTransformer = None,
+    verbose: bool = False
 ) -> tuple[np.ndarray, Optional[np.ndarray]]:
     """
     Loads input (X) and target (Y) data from the specified source paths and
@@ -59,6 +60,9 @@ def load_dataset_from_data_src(
             target (Y) data; expects an instance of the
             `XANESSpectrumTransformer` class that has the `.transform()` method
             implemented. Defaults to None.
+        verbose (bool, optional): If `True`, and the data source(s) is/are
+            a directory/directories, the data source(s) are printed and the
+            data are loaded with a progress bar. Defaults to `False`.
 
     Raises:
         ValueError: If a different number of records are loaded from `x_src`
@@ -71,14 +75,16 @@ def load_dataset_from_data_src(
     
     x = _load_from_data_src(
         x_src,
-        x_transformer,
-        load_x_data_from_dir        
+        data_transformer = x_transformer,
+        directory_data_loader = load_x_data_from_dir,
+        verbose = verbose        
     )
 
     y = _load_from_data_src(
         y_src,
-        y_transformer,
-        load_y_data_from_dir,
+        data_transformer = y_transformer,
+        directory_data_loader = load_y_data_from_dir,
+        verbose = verbose
     ) if y_src else None
 
     if (y is not None) and not (len(x) == len(y)):
@@ -92,7 +98,8 @@ def load_dataset_from_data_src(
 def _load_from_data_src(
     data_src: Path,
     data_transformer: Union[_Descriptor, XANESSpectrumTransformer],
-    directory_data_loader: Callable
+    directory_data_loader: Callable,
+    verbose: bool = False
 ) -> np.ndarray:
     """
     Loads data from the specified source path and applies preprocessing
@@ -109,6 +116,9 @@ def _load_from_data_src(
         directory_data_loader (Callable): Function for loading the data from
             a directory; the function is expected to take both the data source
             (`data_src`) and transformer (`data_transformer`) as arguments.
+        verbose (bool, optional): If `True`, and the data source(s) is/are
+            a directory/directories, the data source(s) are printed and the
+            data are loaded with a progress bar. Defaults to `False`.
 
     Raises:
         FileNotFoundError: If `data_src` does not exist.
@@ -125,7 +135,8 @@ def _load_from_data_src(
     elif data_src.is_dir():
         return directory_data_loader(
             data_src,
-            data_transformer
+            data_transformer,
+            verbose = verbose
         )
     elif not data_src.exists():
         raise FileNotFoundError(
@@ -138,7 +149,8 @@ def _load_from_data_src(
         
 def load_x_data_from_dir(
     x_dir: Path,
-    x_transformer: _Descriptor = None
+    x_transformer: _Descriptor = None,
+    verbose: bool = False
 ) -> np.ndarray:
     """
     Loads input (X) data from a directory of .xyz files; .xyz files are loaded
@@ -153,6 +165,9 @@ def load_x_data_from_dir(
         x_transformer (_Descriptor, optional): Transformer for the input (X)
             data; expects an instance of the `_Descriptor` class. Defaults to
             None.
+        verbose (bool, optional): If `True`, and the data source(s) is/are
+            a directory/directories, the data source(s) are printed and the
+            data are loaded with a progress bar. Defaults to `False`.
 
     Returns:
         np.ndarray: Loaded input (X) data.
@@ -161,14 +176,16 @@ def load_x_data_from_dir(
     x = _load_data_from_dir(
         x_dir,
         data_transformer = x_transformer,
-        file_data_loader = io.read
+        file_data_loader = io.read,
+        verbose = verbose
     )
     
     return x
 
 def load_y_data_from_dir(
     y_dir: Path,
-    y_transformer: XANESSpectrumTransformer = None
+    y_transformer: XANESSpectrumTransformer = None,
+    verbose: bool = False
 ) -> np.ndarray:
     """
     Loads target (Y) data from a directory of XANES spectrum files; XANES
@@ -184,6 +201,9 @@ def load_y_data_from_dir(
         y_transformer (XANESSpectrumTransformer, optional): Transformer for the
         target (Y) data; expects an instance of the `XANESSpectrumTransformer`
         class. Defaults to None.
+        verbose (bool, optional): If `True`, and the data source(s) is/are
+            a directory/directories, the data source(s) are printed and the
+            data are loaded with a progress bar. Defaults to `False`.
 
     Returns:
         np.ndarray: Loaded target (Y) data.
@@ -192,7 +212,8 @@ def load_y_data_from_dir(
     y = _load_data_from_dir(
         y_dir,
         data_transformer = y_transformer,
-        file_data_loader = xn.xanes.read
+        file_data_loader = xn.xanes.read,
+        verbose = verbose
     )
 
     return y
@@ -200,7 +221,8 @@ def load_y_data_from_dir(
 def _load_data_from_dir(
     data_dir: Path,
     data_transformer: Union[_Descriptor, XANESSpectrumTransformer],
-    file_data_loader: Callable
+    file_data_loader: Callable,
+    verbose: bool = False
 ) -> np.ndarray:
     """
     Loads data from a directory of files; files are loaded as appropriate
@@ -217,6 +239,9 @@ def _load_data_from_dir(
             implemented.
         file_data_loader (Callable): Function for loading files as objects that
             `data_transformer` can work with via the `.transform()` method.
+        verbose (bool, optional): If `True`, and the data source(s) is/are
+            a directory/directories, the data source(s) are printed and the
+            data are loaded with a progress bar. Defaults to `False`.
 
     Returns:
         np.ndarray: Loaded data.
@@ -240,12 +265,14 @@ def _load_data_from_dir(
                 'zero-length feature vectors'
             )
         data = np.full((n_samples, n_features), np.nan)
-        print(f'{data_dir}:')
+        if verbose:
+            print(f'{data_dir}:')
         for i, f in tqdm(
             enumerate(sorted(data_dir.iterdir())),
             total = n_samples,
             ncols = 60,
-            nrows = None
+            nrows = None,
+            disable = False if verbose else True
         ):
             if f.is_file():
                 try:
