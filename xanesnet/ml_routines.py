@@ -23,6 +23,7 @@ import pickle
 from typing import Union
 from pathlib import Path
 from . import utils
+from tqdm import tqdm
 from numpy import save
 from xanesnet.config import load_config
 from xanesnet.dataset import load_dataset_from_data_src
@@ -156,16 +157,54 @@ def predict(
     if not output_dir.is_dir():
         output_dir.mkdir(parents = True)
 
-    print('\noutputting predictions...')
-    if data_src.is_dir():
-        output_filenames = [
-            f'{file_stem}.csv' for file_stem in utils.list_file_stems(data_src)
-        ]
-    else:
-        output_filenames = [
-            f'{i:06d}.csv' for i, _ in enumerate(y_predicted, start = 1)
-        ]
-    for y, output_filename in zip(y_predicted, output_filenames):
+    output_filenames = [
+        f'{file_stem}.csv' for file_stem in utils.list_file_stems(data_src)
+    ] if data_src.is_dir() else None
+
+    _write_predictions(
+        y_predicted,
+        spectrum_transformer,
+        output_dir,
+        output_filenames,
+        format = 'csv',
+        verbose = True
+    )
+
+def _write_predictions(
+    y_predicted: list,
+    spectrum_transformer: XANESSpectrumTransformer,
+    output_dir: Path,
+    output_filenames: list = None,
+    format: str = 'csv',
+    verbose: bool = False
+):
+    
+    if not output_dir.is_dir():
+        raise NotADirectoryError(
+            f'{output_dir} does not exist or is not a directory'
+        )
+    
+    if output_filenames and len(output_filenames) != len(y_predicted):
+            raise ValueError(
+                '`y_predicted` and `output_filenames` should have the same '
+                'length'
+            )
+
+    if verbose:
+        print('\noutputting predictions...')
+
+    for i, y in tqdm(
+        enumerate(y_predicted),
+        total = len(y_predicted),
+        ncols = 60,
+        nrows = None,
+        disable = False if verbose else True
+    ):
         xanes = XANES(spectrum_transformer._e_aux, y, e0 = 0.0)
-        write(output_dir / output_filename, xanes, format = 'csv')
-    print(f'...output {len(y_predicted)} predictions @ {output_dir}/\n')
+        output_filename = (
+            output_filenames[i] if output_filenames else f'{i:06d}.{format}'
+        ) 
+        write(output_dir / output_filename, xanes, format = format)
+    
+    if verbose:
+        print(f'...output {len(y_predicted)} predictions @ {output_dir}/\n')
