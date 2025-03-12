@@ -127,3 +127,49 @@ def _iterable_to_str(
     """
     
     return ', '.join(str(item) for item in iterable)
+
+def list_files(
+    path: Path
+) -> list[Path]:
+    """
+    Returns a sorted list of files found in the specified directory.
+
+    Args:
+        path (Path): Path to a directory.
+
+    Returns:
+        list[Path]: List of files found in the specified directory.
+    """
+
+    if not path.is_dir():
+        raise FileNotFoundError(
+            f'{path} does not exist'
+        )
+    
+    return sorted(
+        file_ for file_ in path.iterdir() if file_.is_file()
+    )
+
+def list_file_stems(
+    path: Path
+) -> list[str]:
+    """
+    Returns a sorted list of file stems for files found in the specified
+    directory.
+
+    Args:
+        path (Path): Path to a directory.
+
+    Returns:
+        list[str]: List of file stems for files found in the specified
+            directory.
+    """
+    
+    if not path.is_dir():
+        raise FileNotFoundError(
+            f'{path} does not exist'
+        )
+    
+    return sorted(
+        file_.stem for file_ in path.iterdir() if file_.is_file()
+    )
