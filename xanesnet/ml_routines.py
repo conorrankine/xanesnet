@@ -84,7 +84,8 @@ def train(
     x, y = load_dataset_from_data_src(
         *data_src,
         x_transformer = descriptor,
-        y_transformer = spectrum_transformer
+        y_transformer = spectrum_transformer,
+        verbose = True
     )
     for data, data_src_ in zip((x, y), data_src):
         print(f'loaded {len(data)} records @ {data_src_}')
@@ -141,7 +142,8 @@ def predict(
     print('\nloading + preprocessing data records from source...')
     x, _ = load_dataset_from_data_src(
         data_src,
-        x_transformer = descriptor
+        x_transformer = descriptor,
+        verbose = True
     )
     print(f'...loaded {len(x)} records @ {data_src}')
 
