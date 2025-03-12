@@ -21,6 +21,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import xanesnet as xn
 import numpy as np
+from tqdm import tqdm
 from ase import io
 from typing import Union, Optional, Callable
 from pathlib import Path
@@ -239,7 +240,13 @@ def _load_data_from_dir(
                 'zero-length feature vectors'
             )
         data = np.full((n_samples, n_features), np.nan)
-        for i, f in enumerate(sorted(data_dir.iterdir())):
+        print(f'{data_dir}:')
+        for i, f in tqdm(
+            enumerate(sorted(data_dir.iterdir())),
+            total = n_samples,
+            ncols = 60,
+            nrows = None
+        ):
             if f.is_file():
                 try:
                     data[i,:] = data_transformer.transform(
