@@ -44,7 +44,7 @@ def train(
 ):
 
     config = load_config(
-        config if config is not None else 'test_config.yaml'
+        config if config is not None else 'xanesnet_2021.yaml'
     )
 
     output_dir = utils.unique_path(Path.cwd(), 'xanesnet_output')
