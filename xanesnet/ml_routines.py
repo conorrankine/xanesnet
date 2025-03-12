@@ -20,7 +20,6 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 ###############################################################################
 
 import pickle
-from typing import Union
 from pathlib import Path
 from . import utils
 from tqdm import tqdm
@@ -40,7 +39,8 @@ from sklearn.neural_network import MLPRegressor
 ###############################################################################
 
 def train(
-    data_src: Union[Path, list[Path], list[Path, Path]],
+    x_data_src: Path,
+    y_data_src: Path,
     config: Path = None
 ):
 
@@ -83,13 +83,14 @@ def train(
 
     print('\nloading + preprocessing data records from source...')
     x, y = load_dataset_from_data_src(
-        *data_src,
+        x_data_src,
+        y_data_src,
         x_transformer = descriptor,
         y_transformer = spectrum_transformer,
         verbose = True
     )
-    for data, data_src_ in zip((x, y), data_src):
-        print(f'loaded {len(data)} records @ {data_src_}')
+    for data, data_src in zip((x, y), (x_data_src, y_data_src)):
+        print(f'loaded {len(data)} records @ {data_src}')
 
     for data, label in zip((x, y), ('x', 'y')):
         with open(output_dir / f'{label}.npy', 'wb') as f:
@@ -130,7 +131,7 @@ def train(
     )
 
 def predict(
-    data_src: Union[Path, list[Path]],
+    x_data_src: Path,
     model: Path
 ):
 
@@ -142,11 +143,11 @@ def predict(
 
     print('\nloading + preprocessing data records from source...')
     x, _ = load_dataset_from_data_src(
-        data_src,
+        x_data_src,
         x_transformer = descriptor,
         verbose = True
     )
-    print(f'...loaded {len(x)} records @ {data_src}')
+    print(f'...loaded {len(x)} records @ {x_data_src}')
 
     with open(model / 'pipeline.pkl', 'rb') as f:
         pipeline = pickle.load(f)
@@ -158,8 +159,8 @@ def predict(
         output_dir.mkdir(parents = True)
 
     output_filenames = [
-        f'{file_stem}.csv' for file_stem in utils.list_file_stems(data_src)
-    ] if data_src.is_dir() else None
+        f'{file_stem}.csv' for file_stem in utils.list_file_stems(x_data_src)
+    ] if x_data_src.is_dir() else None
 
     _write_predictions(
         y_predicted,

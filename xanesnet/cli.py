@@ -52,9 +52,13 @@ def parse_args() -> Namespace:
         help = 'train a model'                       
     )
     train_p.add_argument(
-        'data_src', type = Path, nargs = '+', 
-        help = 'path to the input (X) and output (Y) data source(s)'
+        'x_data_src', type = Path, 
+        help = 'path to the input (X) data source'
     )
+    train_p.add_argument(
+        'y_data_src', type = Path, 
+        help = 'path to the output/target (Y) data source'
+    )    
     train_p.add_argument(
         '--config', '-c', type = Path, default = None,
         help = 'path to a .yaml configurational file'
@@ -65,7 +69,7 @@ def parse_args() -> Namespace:
         help = 'make predictions using your trained model'
     )
     predict_p.add_argument(
-        'data_src', type = Path,
+        'x_data_src', type = Path,
         help = 'path to the input (X) data source'
     )
     predict_p.add_argument(
@@ -96,12 +100,13 @@ def main():
 
     if args.mode == 'train':
         xn.train(
-            args.data_src,
+            args.x_data_src,
+            args.y_data_src,
             args.config
         )
     if args.mode == 'predict':
         xn.predict(
-            args.data_src,
+            args.x_data_src,
             args.model
         )
 
