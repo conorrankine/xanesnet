@@ -157,7 +157,15 @@ def predict(
         output_dir.mkdir(parents = True)
 
     print('\noutputting predictions...')
-    for i, y_predicted_ in enumerate(y_predicted, start = 1):
-        xanes = XANES(spectrum_transformer._e_aux, y_predicted_, e0 = 0.0)
-        write(output_dir / f'{i:03d}.csv', xanes, format = 'csv')
-    print(f'...output {i} predictions @ {output_dir}/\n')
+    if data_src.is_dir():
+        output_filenames = [
+            f'{file_stem}.csv' for file_stem in utils.list_file_stems(data_src)
+        ]
+    else:
+        output_filenames = [
+            f'{i:06d}.csv' for i, _ in enumerate(y_predicted, start = 1)
+        ]
+    for y, output_filename in zip(y_predicted, output_filenames):
+        xanes = XANES(spectrum_transformer._e_aux, y, e0 = 0.0)
+        write(output_dir / output_filename, xanes, format = 'csv')
+    print(f'...output {len(y_predicted)} predictions @ {output_dir}/\n')
