@@ -20,6 +20,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 ###############################################################################
 
 import xanesnet as xn
+import datetime
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 
@@ -82,7 +83,16 @@ def parse_args() -> Namespace:
 
 def main():
 
+    datetime_ = datetime.datetime.now()
+    print(f'launched @ {datetime_.strftime("%H:%M:%S (%Y-%m-%d)")}')
+
     args = parse_args()
+
+    header_f = Path(__file__).parent / 'assets' / 'banners' / 'banner.txt'
+    with open(header_f, 'r') as f:
+        for line in f.readlines():
+            print(line.rstrip())
+    print('\n')
 
     if args.mode == 'train':
         xn.train(
@@ -94,6 +104,9 @@ def main():
             args.data_src,
             args.model
         )
+
+    datetime_ = datetime.datetime.now()
+    print(f'finished @ {datetime_.strftime("%H:%M:%S (%Y-%m-%d)")}')
 
 ################################################################################
 ############################## PROGRAM STARTS HERE #############################
