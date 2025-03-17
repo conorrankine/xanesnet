@@ -392,7 +392,25 @@ class XANESSpectrumTransformer():
 def get_spectrum_transformer(
     transformer_type: str,
     params: dict = None
-):
+) -> 'XANESSpectrumTransformer':
+    """
+    Returns a spectrum transformer instance of the specified type, optionally
+    initialised with a set of parameters that can be passed through to the
+    constructor function of the spectrum transformer to override the defaults.
+
+    Args:
+        transformer_type (str): Transformer type, e.g., 'xanes' (X-ray
+            absorption near-edge spectrum); etc.
+        params (dict, optional): Parameters passed through to the constructor
+            function of the transformer. Defaults to None.
+
+    Raises:
+        ValueError: If `transformer_type` is not an available/valid
+            transformer.
+
+    Returns:
+        XANESSpectrumTransformer: Transformer.
+    """
     
     if params is None:
         params = {}
