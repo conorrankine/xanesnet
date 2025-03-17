@@ -27,7 +27,7 @@ from numpy import ndarray, save, load
 from numpy.random import RandomState
 from xanesnet.config import load_config
 from xanesnet.dataset import load_dataset_from_data_src
-from xanesnet.descriptors import RDC, WACSF
+from xanesnet.descriptors import get_descriptor
 from xanesnet.xanes import XANES, XANESSpectrumTransformer, read, write
 from xanesnet.metrics import get_metric
 from sklearn.pipeline import Pipeline
@@ -97,20 +97,16 @@ def _setup_train(
     output_dir = utils.unique_path(Path.cwd(), 'xanesnet_output')
     if not output_dir.is_dir():
         output_dir.mkdir(parents = True)
-
-    descriptors = {
-        'rdc': RDC,
-        'wacsf': WACSF
-    }
-   
+  
     if verbose:
         print(f'\n{config["descriptor"]["type"].upper()} parameters:')
         utils.print_nested_dict(
             config["descriptor"]["params"]
         )
 
-    descriptor = descriptors.get(config["descriptor"]["type"])(
-        **config["descriptor"]["params"]
+    descriptor = get_descriptor(
+        config["descriptor"]["type"],
+        params = config["descriptor"]["params"]
     )
 
     with open(output_dir / 'descriptor.pkl', 'wb') as f:

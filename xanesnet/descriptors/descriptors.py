@@ -19,9 +19,29 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 ############################### LIBRARY IMPORTS ###############################
 ###############################################################################
 
-from xanesnet.descriptors.generic import (
-    _Descriptor, _VectorDescriptor
-)
-from xanesnet.descriptors.rdc import RDC
-from xanesnet.descriptors.wacsf import WACSF
-from .descriptors import get_descriptor
+from .rdc import RDC
+from .wacsf import WACSF
+
+###############################################################################
+################################## FUNCTIONS ##################################
+###############################################################################
+
+def get_descriptor(
+    descriptor_type: str,
+    params: dict = None
+):
+    
+    if params is None:
+        params = {}
+
+    descriptors = {
+        'rdc': RDC,
+        'wacsf': WACSF
+    }
+
+    try:
+        return descriptors.get(descriptor_type)(**params)
+    except KeyError:
+        raise ValueError(
+            f'\'{descriptor_type}\' is not an available/valid descriptor'
+        ) from None
