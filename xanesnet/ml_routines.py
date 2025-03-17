@@ -90,13 +90,14 @@ def predict(
         f'{file_stem}.csv' for file_stem in utils.list_file_stems(x_data_src)
     ] if x_data_src.is_dir() else None
 
+    print('\noutputting predictions as .csv files...')
     _write_predictions(
         y_predicted,
         spectrum_transformer,
         output_dir,
-        output_filenames,
-        verbose = True
+        output_filenames
     )
+    print(f'...output {len(y_predicted)} predictions @ {output_dir}/\n')
 
 def _load_components_from_model_dir(
     model_dir: Path
@@ -195,8 +196,7 @@ def _write_predictions(
     spectrum_transformer: XANESSpectrumTransformer,
     output_dir: Path,
     output_filenames: list = None,
-    format: str = 'csv',
-    verbose: bool = False
+    format: str = 'csv'
 ):
     
     if not output_dir.is_dir():
@@ -210,21 +210,11 @@ def _write_predictions(
                 'length'
             )
 
-    if verbose:
-        print('\noutputting predictions...')
-
     for i, y in tqdm(
-        enumerate(y_predicted),
-        total = len(y_predicted),
-        ncols = 60,
-        nrows = None,
-        disable = False if verbose else True
+        enumerate(y_predicted), total = len(y_predicted), ncols = 60
     ):
         xanes = XANES(spectrum_transformer._e_aux, y, e0 = 0.0)
         output_filename = (
             output_filenames[i] if output_filenames else f'{i:06d}.{format}'
         ) 
         write(output_dir / output_filename, xanes, format = format)
-    
-    if verbose:
-        print(f'...output {len(y_predicted)} predictions @ {output_dir}/\n')
