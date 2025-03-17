@@ -22,6 +22,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 import pickle
 from pathlib import Path
 from . import utils
+from time import time
 from tqdm import tqdm
 from numpy import ndarray, save
 from numpy.random import RandomState
@@ -35,6 +36,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.preprocessing import StandardScaler
 from sklearn.neural_network import MLPRegressor
+from sklearn.model_selection import BaseCrossValidator, RepeatedKFold
 
 ###############################################################################
 ################################## FUNCTIONS ##################################
@@ -45,8 +47,8 @@ def train(
     y_data_src: Path,
     config: dict
 ):
-    
-    x, y, pipeline, output_dir = _setup_train(
+       
+    x, y, pipeline, output_dir, _ = _setup_train(
         x_data_src,
         y_data_src,
         config,
@@ -62,6 +64,28 @@ def train(
 
     score = metric(y, pipeline.predict(x))
     print(f'\nscore: {score:.6f} ({config["metric"]["type"].upper()})\n')
+
+def validate(
+    x_data_src: Path,
+    y_data_src: Path,
+    config: dict
+):
+
+    x, y, pipeline, _, rng = _setup_train(
+        x_data_src,
+        y_data_src,
+        config,
+        verbose = True
+    )
+
+    cv = RepeatedKFold(
+        **config["kfold"], random_state = rng
+    )
+
+    print('\nsplitting data and cross-validating the pipeline...')
+    cv_results = _cross_validate(pipeline, x, y, cv = cv)
+    _print_cross_validation_results(cv_results)
+    print(f'completed {cv.get_n_splits()} cross-validation cycles\n')
 
 def predict(
     x_data_src: Path,
@@ -133,7 +157,7 @@ def _setup_train(
     y_data_src: Path,
     config: dict,
     verbose: bool = False
-) -> tuple[ndarray, ndarray, Pipeline, Path]:
+) -> tuple[ndarray, ndarray, Pipeline, Path, RandomState]:
     
     rng = RandomState(seed = config["random_state"]["seed"])
 
@@ -204,7 +228,54 @@ def _setup_train(
         )
     ])
 
-    return x, y, pipeline, output_dir
+    return x, y, pipeline, output_dir, rng
+
+def _cross_validate(
+    pipeline: Pipeline,
+    x: ndarray,
+    y: ndarray,
+    cv: BaseCrossValidator
+) -> dict:
+    
+    cv_results = {}
+
+    for i, (train_idx, valid_idx) in tqdm(
+        enumerate(cv.split(x, y)), total = cv.get_n_splits(), ncols = 60
+    ):
+        
+        x_train, x_valid = x[train_idx], x[valid_idx]
+        y_train, y_valid = y[train_idx], y[valid_idx]
+        
+        start_time = time()
+        pipeline.fit(x_train, y_train)
+        elapsed_time = time() - start_time
+        
+        cv_results.update(
+            {f'fold_{i+1}': tuple([
+                pipeline.score(x_train, y_train),
+                pipeline.score(x_valid, y_valid),
+                elapsed_time
+            ])}
+        )
+
+    return cv_results
+
+def _print_cross_validation_results(
+    cv_results: dict
+):
+    
+    print('-' * 60)
+    print(f'{"fold":<10}{"train":>20}{"valid":>20}{"time":>10}')
+    print('-' * 60)
+    for key, val in cv_results.items():
+        train_score, valid_score, time = val
+        print(
+            f'{key:<10}'
+            f'{train_score:>20.6f}'
+            f'{valid_score:>20.6f}'
+            f'{time:>9.1f}s'
+        )
+    print('-' * 60)
 
 def _load_components_from_model_dir(
     model_dir: Path

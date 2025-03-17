@@ -43,7 +43,10 @@ model:
   learning_rate: constant
   learning_rate_init: 0.001
   max_iter: 512
-  verbose: True
+
+kfold:
+  n_splits: 3
+  n_repeats: 2
 
 metric:
   type: mse

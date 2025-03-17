@@ -61,7 +61,24 @@ def parse_args() -> Namespace:
         help = 'path to the output/target (Y) data source'
     )    
     train_p.add_argument(
-        '--config', '-c', type = Path, default = None,
+        '-c', '--config', type = Path, default = None,
+        help = 'path to a .yaml configurational file'
+    )
+
+    validate_p = sub_p.add_parser(
+        'validate',
+        help = '(cross-)validate a model'                       
+    )
+    validate_p.add_argument(
+        'x_data_src', type = Path, 
+        help = 'path to the input (X) data source'
+    )
+    validate_p.add_argument(
+        'y_data_src', type = Path, 
+        help = 'path to the output/target (Y) data source'
+    )    
+    validate_p.add_argument(
+        '-c', '--config', type = Path, default = None,
         help = 'path to a .yaml configurational file'
     )
 
@@ -120,11 +137,19 @@ def main():
             print(line.rstrip())
     print('\n')
 
-    if args.mode == 'train':
+    if args.mode in ('train', 'validate'):
         config = load_config(
             args.config if args.config is not None else 'xanesnet_2021.yaml'
         )
+
+    if args.mode == 'train':
         xn.train(
+            args.x_data_src,
+            args.y_data_src,
+            config = config
+        )
+    if args.mode == 'validate':
+        xn.validate(
             args.x_data_src,
             args.y_data_src,
             config = config
