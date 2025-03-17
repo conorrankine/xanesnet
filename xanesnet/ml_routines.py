@@ -28,7 +28,9 @@ from numpy.random import RandomState
 from xanesnet.config import load_config
 from xanesnet.dataset import load_dataset_from_data_src
 from xanesnet.descriptors import get_descriptor
-from xanesnet.xanes import XANES, XANESSpectrumTransformer, read, write
+from xanesnet.xanes import (
+    XANES, XANESSpectrumTransformer, get_spectrum_transformer, read, write
+)
 from xanesnet.metrics import get_metric
 from sklearn.pipeline import Pipeline
 from sklearn.feature_selection import VarianceThreshold
@@ -115,11 +117,12 @@ def _setup_train(
     if verbose:
         print('\nspectrum preprocessing parameters:')
         utils.print_nested_dict(
-            config["spectrum"]["params"]
+            config["spectrum_transformer"]["params"]
         )
 
-    spectrum_transformer = XANESSpectrumTransformer(
-        **config["spectrum"]["params"]
+    spectrum_transformer = get_spectrum_transformer(
+        config["spectrum_transformer"]["type"],
+        params = config["spectrum_transformer"]["params"]
     )
 
     with open(output_dir / 'spectrum_transformer.pkl', 'wb') as f:

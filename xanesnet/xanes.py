@@ -389,6 +389,25 @@ class XANESSpectrumTransformer():
 ################################## FUNCTIONS ##################################
 ###############################################################################
 
+def get_spectrum_transformer(
+    transformer_type: str,
+    params: dict = None
+):
+    
+    if params is None:
+        params = {}
+
+    transformers = {
+        'xanes': XANESSpectrumTransformer
+    }
+
+    try:
+        return transformers.get(transformer_type)(**params)
+    except KeyError:
+        raise ValueError(
+            f'\'{transformer_type}\' is not an available/valid transformer'
+        ) from None
+
 def read(
     filepath: Union[str, Path],
     format: str = None

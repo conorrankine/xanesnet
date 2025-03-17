@@ -9,7 +9,8 @@ descriptor:
     dr: 0.05
     alpha: 10.0
 
-spectrum:
+spectrum_transformer:
+  type: xanes
   params:
     e_min: -30.0
     e_max: 120.0
