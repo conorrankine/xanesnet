@@ -30,7 +30,21 @@ from sklearn.metrics import (
 
 def get_metric(
     metric_type: str
-):
+) -> callable:
+    """
+    Returns a metric/"scoring" function of the specified type; a metric
+    function has the form f(`y_true`, `y_predicted`, *) -> `loss`.
+
+    Args:
+        metric_type (str): Metric type, e.g., 'mse' (mean-squared error); 'mae'
+            (mean absolute error); etc.
+
+    Raises:
+        ValueError: If `metric_type` is not not a valid/supported metric.
+
+    Returns:
+        callable: Metric function.
+    """
     
     metrics = {
         'mse': mean_squared_error,
