@@ -99,20 +99,35 @@ def predict(
     )
     print(f'...output {len(y_predicted)} predictions @ {output_dir}/\n')
 
-def _load_components_from_model_dir(
-    model_dir: Path
-) -> tuple:
+def evaluate(
+    x_data_src: Path,
+    y_data_src: Path,
+    model: Path,
+    metric_type: str = 'mse'
+):
     
-    component_files = [
-        'descriptor.pkl',
-        'spectrum_transformer.pkl',
-        'pipeline.pkl'
-    ]
-    
-    return tuple(
-        [pickle.load(open(model_dir / f, 'rb')) for f in component_files]
+    descriptor, spectrum_transformer, pipeline = _load_components_from_model_dir(
+        model
     )
 
+    print('\nloading + preprocessing data records from source...')
+    x, y = load_dataset_from_data_src(
+        x_data_src,
+        y_data_src,
+        x_transformer = descriptor,
+        y_transformer = spectrum_transformer,
+        verbose = True
+    )
+    for data, data_src in zip((x, y), (x_data_src, y_data_src)):
+        print(f'loaded {len(data)} records @ {data_src}')
+
+    y_predicted = pipeline.predict(x)
+
+    metric = get_metric(metric_type.lower())
+
+    score = metric(y, y_predicted)
+    print(f'\nscore: {score:.6f} ({metric_type.upper()})\n')
+    
 def _setup_train(
     x_data_src: Path,
     y_data_src: Path,
@@ -190,6 +205,20 @@ def _setup_train(
     ])
 
     return x, y, pipeline, output_dir
+
+def _load_components_from_model_dir(
+    model_dir: Path
+) -> tuple:
+    
+    component_files = [
+        'descriptor.pkl',
+        'spectrum_transformer.pkl',
+        'pipeline.pkl'
+    ]
+    
+    return tuple(
+        [pickle.load(open(model_dir / f, 'rb')) for f in component_files]
+    )
 
 def _write_predictions(
     y_predicted: list,

@@ -78,6 +78,27 @@ def parse_args() -> Namespace:
         help = 'path to the trained model'
     )
 
+    evaluate_p = sub_p.add_parser(
+        'evaluate',
+        help = 'evaluate your trained model against a metric'
+    )
+    evaluate_p.add_argument(
+        'x_data_src', type = Path, 
+        help = 'path to the input (X) data source'
+    )
+    evaluate_p.add_argument(
+        'y_data_src', type = Path, 
+        help = 'path to the output/target (Y) data source'
+    )
+    evaluate_p.add_argument(
+        'model', type = Path,
+        help = 'path to the trained model'
+    )
+    evaluate_p.add_argument(
+        '-m', '--metric', type = str, default = 'mse',
+        help = 'metric to use for model evaluation'
+    )
+
     args = p.parse_args()
 
     return args  
@@ -112,6 +133,13 @@ def main():
         xn.predict(
             args.x_data_src,
             args.model
+        )
+    if args.mode == 'evaluate':
+        xn.evaluate(
+            args.x_data_src,
+            args.y_data_src,
+            args.model,
+            args.metric
         )
 
     datetime_ = datetime.datetime.now()
