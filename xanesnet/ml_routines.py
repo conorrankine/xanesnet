@@ -23,7 +23,7 @@ import pickle
 from pathlib import Path
 from . import utils
 from tqdm import tqdm
-from numpy import save, load
+from numpy import ndarray, save, load
 from numpy.random import RandomState
 from xanesnet.config import load_config
 from xanesnet.dataset import load_dataset_from_data_src
@@ -44,6 +44,76 @@ def train(
     y_data_src: Path,
     config: Path = None
 ):
+
+    x, y, pipeline, output_dir = _setup_train(
+        x_data_src,
+        y_data_src,
+        config
+    )
+
+    pipeline.fit(x, y)
+
+    with open(output_dir / 'pipeline.pkl', 'wb') as f:
+        pickle.dump(pipeline, f)
+
+    metrics = {
+        'mse': mean_squared_error,
+        'mae': mean_absolute_error
+    }
+
+    metric = metrics.get(config["metric"]["type"])
+
+    score = metric(y, pipeline.predict(x))
+    print(
+        f'\nfinal score: {score:.6f} ({config["metric"]["type"].upper()})\n'
+    )
+
+def predict(
+    x_data_src: Path,
+    model: Path
+):
+
+    with open(model / 'descriptor.pkl', 'rb') as f:
+        descriptor = pickle.load(f)
+
+    with open(model / 'spectrum_transformer.pkl', 'rb') as f:
+        spectrum_transformer = pickle.load(f)
+
+    print('\nloading + preprocessing data records from source...')
+    x, _ = load_dataset_from_data_src(
+        x_data_src,
+        x_transformer = descriptor,
+        verbose = True
+    )
+    print(f'...loaded {len(x)} records @ {x_data_src}')
+
+    with open(model / 'pipeline.pkl', 'rb') as f:
+        pipeline = pickle.load(f)
+
+    y_predicted = pipeline.predict(x)
+
+    output_dir = utils.unique_path(Path.cwd(), 'xanesnet_output')
+    if not output_dir.is_dir():
+        output_dir.mkdir(parents = True)
+
+    output_filenames = [
+        f'{file_stem}.csv' for file_stem in utils.list_file_stems(x_data_src)
+    ] if x_data_src.is_dir() else None
+
+    _write_predictions(
+        y_predicted,
+        spectrum_transformer,
+        output_dir,
+        output_filenames,
+        format = 'csv',
+        verbose = True
+    )
+
+def _setup_train(
+    x_data_src: Path,
+    y_data_src: Path,
+    config: Path = None
+) -> tuple[ndarray, ndarray, Pipeline, Path]:
 
     config = load_config(
         config if config is not None else 'xanesnet_2021.yaml'
@@ -116,63 +186,7 @@ def train(
         )
     ])
 
-    pipeline.fit(x, y)
-
-    with open(output_dir / 'pipeline.pkl', 'wb') as f:
-        pickle.dump(pipeline, f)
-
-    metrics = {
-        'mse': mean_squared_error,
-        'mae': mean_absolute_error
-    }
-
-    metric = metrics.get(config["metric"]["type"])
-
-    score = metric(y, pipeline.predict(x))
-    print(
-        f'\nfinal score: {score:.6f} ({config["metric"]["type"].upper()})\n'
-    )
-
-def predict(
-    x_data_src: Path,
-    model: Path
-):
-
-    with open(model / 'descriptor.pkl', 'rb') as f:
-        descriptor = pickle.load(f)
-
-    with open(model / 'spectrum_transformer.pkl', 'rb') as f:
-        spectrum_transformer = pickle.load(f)
-
-    print('\nloading + preprocessing data records from source...')
-    x, _ = load_dataset_from_data_src(
-        x_data_src,
-        x_transformer = descriptor,
-        verbose = True
-    )
-    print(f'...loaded {len(x)} records @ {x_data_src}')
-
-    with open(model / 'pipeline.pkl', 'rb') as f:
-        pipeline = pickle.load(f)
-
-    y_predicted = pipeline.predict(x)
-
-    output_dir = utils.unique_path(Path.cwd(), 'xanesnet_output')
-    if not output_dir.is_dir():
-        output_dir.mkdir(parents = True)
-
-    output_filenames = [
-        f'{file_stem}.csv' for file_stem in utils.list_file_stems(x_data_src)
-    ] if x_data_src.is_dir() else None
-
-    _write_predictions(
-        y_predicted,
-        spectrum_transformer,
-        output_dir,
-        output_filenames,
-        format = 'csv',
-        verbose = True
-    )
+    return x, y, pipeline, output_dir
 
 def _write_predictions(
     y_predicted: list,
