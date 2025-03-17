@@ -108,7 +108,9 @@ def _load_components_from_model_dir(
         'pipeline.pkl'
     ]
     
-    return tuple([pickle.load(f) for f in component_files])
+    return tuple(
+        [pickle.load(open(model_dir / f, 'rb')) for f in component_files]
+    )
 
 def _setup_train(
     x_data_src: Path,
