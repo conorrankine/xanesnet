@@ -19,6 +19,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 ############################### LIBRARY IMPORTS ###############################
 ###############################################################################
 
+from .generic import _Descriptor
 from .rdc import RDC
 from .wacsf import WACSF
 
@@ -29,7 +30,25 @@ from .wacsf import WACSF
 def get_descriptor(
     descriptor_type: str,
     params: dict = None
-):
+) -> _Descriptor:
+    """
+    Returns a descriptor (`_Descriptor`) instance of the specified type,
+    optionally initialised with a set of parameters that can be passed through
+    to the constructor function of the descriptor to override the defaults.
+
+    Args:
+        descriptor_type (str): Descriptor type, e.g., 'rdc' (radial
+            distribution functions); 'wacsf' (weighted atom-centred symmetry
+            functions); etc.
+        params (dict, optional): Parameters passed through to the constructor
+            function of the descriptor. Defaults to None.
+
+    Raises:
+        ValueError: If `descriptor_type` is not an available/valid descriptor.
+
+    Returns:
+        _Descriptor: Descriptor.
+    """
     
     if params is None:
         params = {}
