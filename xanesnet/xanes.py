@@ -374,6 +374,16 @@ class XANESSpectrumTransformer():
         )
         
         return spectrum_
+    
+    def get_energy_grid(
+        self
+    ) -> np.ndarray:
+        """
+        Returns:
+            np.ndarray: Energy grid.
+        """
+        
+        return self._e_aux
 
     def get_len(
         self
