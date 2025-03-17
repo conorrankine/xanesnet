@@ -48,7 +48,8 @@ def train(
     x, y, pipeline, output_dir = _setup_train(
         x_data_src,
         y_data_src,
-        config
+        config,
+        verbose = True
     )
 
     pipeline.fit(x, y)
@@ -112,7 +113,8 @@ def predict(
 def _setup_train(
     x_data_src: Path,
     y_data_src: Path,
-    config: Path = None
+    config: Path = None,
+    verbose: bool = False
 ) -> tuple[ndarray, ndarray, Pipeline, Path]:
 
     config = load_config(
@@ -130,10 +132,11 @@ def _setup_train(
         'wacsf': WACSF
     }
    
-    print(f'\n{config["descriptor"]["type"].upper()} parameters:')
-    utils.print_nested_dict(
-        config["descriptor"]["params"]
-    )
+    if verbose:
+        print(f'\n{config["descriptor"]["type"].upper()} parameters:')
+        utils.print_nested_dict(
+            config["descriptor"]["params"]
+        )
 
     descriptor = descriptors.get(config["descriptor"]["type"])(
         **config["descriptor"]["params"]
@@ -142,10 +145,11 @@ def _setup_train(
     with open(output_dir / 'descriptor.pkl', 'wb') as f:
         pickle.dump(descriptor, f)
 
-    print('\nspectrum preprocessing parameters:')
-    utils.print_nested_dict(
-        config["spectrum"]["params"]
-    )
+    if verbose:
+        print('\nspectrum preprocessing parameters:')
+        utils.print_nested_dict(
+            config["spectrum"]["params"]
+        )
 
     spectrum_transformer = XANESSpectrumTransformer(
         **config["spectrum"]["params"]
@@ -154,25 +158,28 @@ def _setup_train(
     with open(output_dir / 'spectrum_transformer.pkl', 'wb') as f:
         pickle.dump(spectrum_transformer, f)
 
-    print('\nloading + preprocessing data records from source...')
+    if verbose:
+        print('\nloading + preprocessing data records from source...')
     x, y = load_dataset_from_data_src(
         x_data_src,
         y_data_src,
         x_transformer = descriptor,
         y_transformer = spectrum_transformer,
-        verbose = True
+        verbose = verbose
     )
-    for data, data_src in zip((x, y), (x_data_src, y_data_src)):
-        print(f'loaded {len(data)} records @ {data_src}')
+    if verbose:
+        for data, data_src in zip((x, y), (x_data_src, y_data_src)):
+            print(f'loaded {len(data)} records @ {data_src}')
 
     for data, label in zip((x, y), ('x', 'y')):
         with open(output_dir / f'{label}.npy', 'wb') as f:
             save(f, data)
 
-    print('\nneural network parameters:')
-    utils.print_nested_dict(
-        config["model"]
-    )
+    if verbose:
+        print('\nneural network parameters:')
+        utils.print_nested_dict(
+            config["model"]
+        )
 
     pipeline = Pipeline([
         ('feature_selection', VarianceThreshold(
