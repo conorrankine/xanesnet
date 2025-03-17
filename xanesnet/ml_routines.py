@@ -76,7 +76,8 @@ def predict(
 
     y_predicted, spectrum_transformer, output_dir = _setup_predict(
         x_data_src,
-        model
+        model,
+        verbose = True
     )
 
     output_filenames = [
@@ -88,7 +89,6 @@ def predict(
         spectrum_transformer,
         output_dir,
         output_filenames,
-        format = 'csv',
         verbose = True
     )
 
@@ -179,7 +179,8 @@ def _setup_train(
 
 def _setup_predict(
     x_data_src: Path,
-    model: Path
+    model: Path,
+    verbose: bool = False
 ) -> tuple[ndarray, XANESSpectrumTransformer, Path]:
 
     output_dir = utils.unique_path(Path.cwd(), 'xanesnet_output')
@@ -192,13 +193,15 @@ def _setup_predict(
     with open(model / 'spectrum_transformer.pkl', 'rb') as f:
         spectrum_transformer = pickle.load(f)
 
-    print('\nloading + preprocessing data records from source...')
+    if verbose:
+        print('\nloading + preprocessing data records from source...')
     x, _ = load_dataset_from_data_src(
         x_data_src,
         x_transformer = descriptor,
-        verbose = True
+        verbose = verbose
     )
-    print(f'...loaded {len(x)} records @ {x_data_src}')
+    if verbose:
+        print(f'...loaded {len(x)} records @ {x_data_src}')
 
     with open(model / 'pipeline.pkl', 'rb') as f:
         pipeline = pickle.load(f)
