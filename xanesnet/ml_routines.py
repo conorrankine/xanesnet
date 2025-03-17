@@ -67,12 +67,24 @@ def predict(
     x_data_src: Path,
     model: Path
 ):
+    
+    output_dir = utils.unique_path(Path.cwd(), 'xanesnet_output')
+    if not output_dir.is_dir():
+        output_dir.mkdir(parents = True)
 
-    y_predicted, spectrum_transformer, output_dir = _setup_predict(
+    descriptor, spectrum_transformer, pipeline = _load_components_from_model_dir(
+        model
+    )
+
+    print('\nloading + preprocessing data records from source...')
+    x, _ = load_dataset_from_data_src(
         x_data_src,
-        model,
+        x_transformer = descriptor,
         verbose = True
     )
+    print(f'...loaded {len(x)} records @ {x_data_src}')
+
+    y_predicted = pipeline.predict(x)
 
     output_filenames = [
         f'{file_stem}.csv' for file_stem in utils.list_file_stems(x_data_src)
@@ -85,6 +97,18 @@ def predict(
         output_filenames,
         verbose = True
     )
+
+def _load_components_from_model_dir(
+    model_dir: Path
+) -> tuple:
+    
+    component_files = [
+        'descriptor.pkl',
+        'spectrum_transformer.pkl',
+        'pipeline.pkl'
+    ]
+    
+    return tuple([pickle.load(f) for f in component_files])
 
 def _setup_train(
     x_data_src: Path,
@@ -163,39 +187,6 @@ def _setup_train(
     ])
 
     return x, y, pipeline, output_dir
-
-def _setup_predict(
-    x_data_src: Path,
-    model: Path,
-    verbose: bool = False
-) -> tuple[ndarray, XANESSpectrumTransformer, Path]:
-
-    output_dir = utils.unique_path(Path.cwd(), 'xanesnet_output')
-    if not output_dir.is_dir():
-        output_dir.mkdir(parents = True)
-
-    with open(model / 'descriptor.pkl', 'rb') as f:
-        descriptor = pickle.load(f)
-
-    with open(model / 'spectrum_transformer.pkl', 'rb') as f:
-        spectrum_transformer = pickle.load(f)
-
-    if verbose:
-        print('\nloading + preprocessing data records from source...')
-    x, _ = load_dataset_from_data_src(
-        x_data_src,
-        x_transformer = descriptor,
-        verbose = verbose
-    )
-    if verbose:
-        print(f'...loaded {len(x)} records @ {x_data_src}')
-
-    with open(model / 'pipeline.pkl', 'rb') as f:
-        pipeline = pickle.load(f)
-
-    y_predicted = pipeline.predict(x)
-
-    return y_predicted, spectrum_transformer, output_dir
 
 def _write_predictions(
     y_predicted: list,
