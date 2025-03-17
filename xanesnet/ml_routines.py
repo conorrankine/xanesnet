@@ -42,9 +42,9 @@ from sklearn.neural_network import MLPRegressor
 def train(
     x_data_src: Path,
     y_data_src: Path,
-    config: Path = None
+    config: dict
 ):
-
+    
     x, y, pipeline, output_dir = _setup_train(
         x_data_src,
         y_data_src,
@@ -88,14 +88,10 @@ def predict(
 def _setup_train(
     x_data_src: Path,
     y_data_src: Path,
-    config: Path = None,
+    config: dict,
     verbose: bool = False
 ) -> tuple[ndarray, ndarray, Pipeline, Path]:
-
-    config = load_config(
-        config if config is not None else 'xanesnet_2021.yaml'
-    )
-
+    
     rng = RandomState(seed = config["random_state"]["seed"])
 
     output_dir = utils.unique_path(Path.cwd(), 'xanesnet_output')

@@ -99,10 +99,13 @@ def main():
     print('\n')
 
     if args.mode == 'train':
+        config = xn.config.load_config(
+            args.config if args.config is not None else 'xanesnet_2021.yaml'
+        )
         xn.train(
             args.x_data_src,
             args.y_data_src,
-            args.config
+            config = config
         )
     if args.mode == 'predict':
         xn.predict(
