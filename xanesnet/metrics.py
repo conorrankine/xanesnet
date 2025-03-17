@@ -23,3 +23,23 @@ from sklearn.metrics import (
     mean_squared_error,
     mean_absolute_error
 )
+
+###############################################################################
+################################## FUNCTIONS ##################################
+###############################################################################
+
+def get_metric(
+    metric_type: str
+):
+    
+    metrics = {
+        'mse': mean_squared_error,
+        'mae': mean_absolute_error
+    }
+
+    try:
+        return metrics.get(metric_type)
+    except KeyError:
+        raise ValueError(
+            f'\'{metric_type}\' is not a valid/supported metric'
+        ) from None

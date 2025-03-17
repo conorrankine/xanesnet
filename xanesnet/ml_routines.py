@@ -29,7 +29,7 @@ from xanesnet.config import load_config
 from xanesnet.dataset import load_dataset_from_data_src
 from xanesnet.descriptors import RDC, WACSF
 from xanesnet.xanes import XANES, XANESSpectrumTransformer, read, write
-from xanesnet.metrics import mean_squared_error, mean_absolute_error
+from xanesnet.metrics import get_metric
 from sklearn.pipeline import Pipeline
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.preprocessing import StandardScaler
@@ -57,17 +57,10 @@ def train(
     with open(output_dir / 'pipeline.pkl', 'wb') as f:
         pickle.dump(pipeline, f)
 
-    metrics = {
-        'mse': mean_squared_error,
-        'mae': mean_absolute_error
-    }
-
-    metric = metrics.get(config["metric"]["type"])
+    metric = get_metric(config["metric"]["type"].lower())
 
     score = metric(y, pipeline.predict(x))
-    print(
-        f'\nfinal score: {score:.6f} ({config["metric"]["type"].upper()})\n'
-    )
+    print(f'\nscore: {score:.6f} ({config["metric"]["type"].upper()})\n')
 
 def predict(
     x_data_src: Path,
