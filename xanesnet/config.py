@@ -29,7 +29,9 @@ from . import configs
 ################################## FUNCTIONS ##################################
 ###############################################################################
 
-def load_config(config_f: Union[str, Path]) -> dict:
+def load_config(
+    config_f: Union[str, Path]
+) -> dict:
     """
     Loads a .yaml configuration file (`config_f`). An attempt is made to load
     the .yaml file from the filesystem; if it is not found, an attempt is made
