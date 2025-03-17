@@ -23,9 +23,9 @@ import xanesnet as xn
 import numpy as np
 from tqdm import tqdm
 from ase import io
-from typing import Union, Optional, Callable
 from pathlib import Path
-from xanesnet.descriptors import _Descriptor
+from typing import Union, Optional, Callable
+from xanesnet.descriptors.generic import _Descriptor
 from xanesnet.xanes import XANESSpectrumTransformer
 
 ###############################################################################

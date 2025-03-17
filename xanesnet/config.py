@@ -20,10 +20,10 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 ###############################################################################
 
 import yaml
-from typing import Union
 from pathlib import Path
+from typing import Union
 from importlib import resources
-from xanesnet import configs
+from . import configs
 
 ###############################################################################
 ################################## FUNCTIONS ##################################

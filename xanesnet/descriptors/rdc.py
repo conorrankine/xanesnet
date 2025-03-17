@@ -21,7 +21,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import numpy as np
 from ase import Atoms
-from xanesnet.descriptors import _VectorDescriptor
+from .generic import _VectorDescriptor
 
 ###############################################################################
 ################################## CLASSES ####################################

@@ -23,13 +23,12 @@ import pickle
 from pathlib import Path
 from . import utils
 from tqdm import tqdm
-from numpy import ndarray, save, load
+from numpy import ndarray, save
 from numpy.random import RandomState
-from xanesnet.config import load_config
 from xanesnet.dataset import load_dataset_from_data_src
 from xanesnet.descriptors import get_descriptor
 from xanesnet.xanes import (
-    XANES, XANESSpectrumTransformer, get_spectrum_transformer, read, write
+    XANES, XANESSpectrumTransformer, get_spectrum_transformer, write
 )
 from xanesnet.metrics import get_metric
 from sklearn.pipeline import Pipeline

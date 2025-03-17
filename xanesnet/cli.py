@@ -23,6 +23,7 @@ import xanesnet as xn
 import datetime
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
+from .config import load_config
 
 ###############################################################################
 ############################## ARGUMENT PARSING ###############################
@@ -99,7 +100,7 @@ def main():
     print('\n')
 
     if args.mode == 'train':
-        config = xn.config.load_config(
+        config = load_config(
             args.config if args.config is not None else 'xanesnet_2021.yaml'
         )
         xn.train(

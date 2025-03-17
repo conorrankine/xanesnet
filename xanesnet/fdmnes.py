@@ -19,8 +19,8 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 ############################### LIBRARY IMPORTS ###############################
 ###############################################################################
 
-from pathlib import Path
 from ase import Atom, Atoms
+from pathlib import Path
 from typing import TextIO, Generator
 
 ###############################################################################
