@@ -28,9 +28,7 @@ from numpy import ndarray, save
 from numpy.random import RandomState
 from xanesnet.dataset import load_dataset_from_data_src
 from xanesnet.descriptors import get_descriptor
-from xanesnet.xanes import (
-    XANES, XANESSpectrumTransformer, get_spectrum_transformer, write
-)
+from xanesnet.xanes import XANES, get_spectrum_transformer, write
 from xanesnet.metrics import get_metric
 from sklearn.pipeline import Pipeline
 from sklearn.feature_selection import VarianceThreshold
@@ -116,7 +114,9 @@ def predict(
     )
     print(f'...loaded {len(x)} records @ {x_data_src}')
 
-    y_predicted = pipeline.predict(x)
+    y_predicted = [
+        XANES(spectrum_transformer.energy_grid, y) for y in pipeline.predict(x)
+    ]
 
     output_filenames = [
         f'{file_stem}.csv' for file_stem in utils.list_file_stems(x_data_src)
@@ -125,7 +125,6 @@ def predict(
     print('\noutputting predictions as .csv files...')
     _write_predictions(
         y_predicted,
-        spectrum_transformer,
         output_dir,
         output_filenames
     )
@@ -301,8 +300,7 @@ def _load_components_from_model_dir(
     )
 
 def _write_predictions(
-    y_predicted: list,
-    spectrum_transformer: XANESSpectrumTransformer,
+    y_predicted: list[XANES],
     output_dir: Path,
     output_filenames: list = None,
     format: str = 'csv'
@@ -319,11 +317,10 @@ def _write_predictions(
                 'length'
             )
 
-    for i, y in tqdm(
+    for i, y_predicted_ in tqdm(
         enumerate(y_predicted), total = len(y_predicted), ncols = 60
     ):
-        xanes = XANES(spectrum_transformer.energy_grid, y, e0 = 0.0)
         output_filename = (
             output_filenames[i] if output_filenames else f'{i:06d}.{format}'
         ) 
-        write(output_dir / output_filename, xanes, format = format)
+        write(output_dir / output_filename, y_predicted_, format = format)
