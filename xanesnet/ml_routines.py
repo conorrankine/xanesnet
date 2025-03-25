@@ -141,7 +141,12 @@ def predict(
         output_dir.mkdir(parents = True)
 
     descriptor, spectrum_transformer, pipeline = _load_components_from_model_dir(
-        model
+        model,
+        components = [
+            'descriptor',
+            'spectrum_transformer',
+            'pipeline'
+        ]
     )
 
     print('\nloading + preprocessing data records from source...')
@@ -176,7 +181,12 @@ def evaluate(
 ):
     
     descriptor, spectrum_transformer, pipeline = _load_components_from_model_dir(
-        model
+        model,
+        components = [
+            'descriptor',
+            'spectrum_transformer',
+            'pipeline'
+        ]
     )
 
     print('\nloading + preprocessing data records from source...')
@@ -246,7 +256,7 @@ def _print_cross_validation_results(
     print('-' * 60)
 
 def _summarise_config_params(
-    config: dict
+    config: dict,
 ):
     
     components = [
@@ -300,17 +310,16 @@ def _save_components_to_model_dir(
             pickle.dump(component, f)
 
 def _load_components_from_model_dir(
-    model_dir: Path
+    model_dir: Path,
+    components: list
 ) -> tuple:
     
     component_files = [
-        'descriptor.pkl',
-        'spectrum_transformer.pkl',
-        'pipeline.pkl'
+        model_dir / f'{component}.pkl' for component in components
     ]
     
     return tuple(
-        [pickle.load(open(model_dir / f, 'rb')) for f in component_files]
+        [pickle.load(open(f, 'rb')) for f in component_files]
     )
 
 def _write_predictions(
