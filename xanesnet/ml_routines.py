@@ -54,14 +54,14 @@ def train(
 
     _summarise_config_params(
         config,
-        components = [
+        objects = [
             'descriptor',
             'spectrum_transformer',
             'model'
         ]
     )
 
-    descriptor, spectrum_transformer, pipeline = _create_components_from_config(
+    x_transformer, y_transformer, pipeline = _create_objects_from_config(
         config, random_state = random_state
     )
 
@@ -69,8 +69,8 @@ def train(
     x, y = load_dataset_from_data_src(
         x_data_src,
         y_data_src,
-        x_transformer = descriptor,
-        y_transformer = spectrum_transformer,
+        x_transformer = x_transformer,
+        y_transformer = y_transformer,
         verbose = True
     )
     for data, data_src in zip((x, y), (x_data_src, y_data_src)):
@@ -82,11 +82,11 @@ def train(
 
     pipeline.fit(x, y)
 
-    _save_components_to_model_dir(
+    _save_objects_to_model_dir(
         output_dir,
         {
-            'descriptor': descriptor,
-            'spectrum_transformer': spectrum_transformer,
+            'descriptor': x_transformer,
+            'spectrum_transformer': y_transformer,
             'pipeline': pipeline
         }
     )
@@ -106,14 +106,14 @@ def validate(
 
     _summarise_config_params(
         config,
-        components = [
+        objects = [
             'descriptor',
             'spectrum_transformer',
             'model'
         ]
     )
 
-    descriptor, spectrum_transformer, pipeline = _create_components_from_config(
+    x_transformer, y_transformer, pipeline = _create_objects_from_config(
         config, random_state = random_state
     )
 
@@ -121,8 +121,8 @@ def validate(
     x, y = load_dataset_from_data_src(
         x_data_src,
         y_data_src,
-        x_transformer = descriptor,
-        y_transformer = spectrum_transformer,
+        x_transformer = x_transformer,
+        y_transformer = y_transformer,
         verbose = True
     )
     for data, data_src in zip((x, y), (x_data_src, y_data_src)):
@@ -154,9 +154,9 @@ def predict(
     if not output_dir.is_dir():
         output_dir.mkdir(parents = True)
 
-    descriptor, spectrum_transformer, pipeline = _load_components_from_model_dir(
+    x_transformer, y_transformer, pipeline = _load_objects_from_model_dir(
         model,
-        components = [
+        objects = [
             'descriptor',
             'spectrum_transformer',
             'pipeline'
@@ -166,13 +166,13 @@ def predict(
     print('\nloading + preprocessing data records from source...')
     x, _ = load_dataset_from_data_src(
         x_data_src,
-        x_transformer = descriptor,
+        x_transformer = x_transformer,
         verbose = True
     )
     print(f'...loaded {len(x)} records @ {x_data_src}')
 
     y_predicted = [
-        XANES(spectrum_transformer.energy_grid, y) for y in pipeline.predict(x)
+        XANES(y_transformer.energy_grid, y) for y in pipeline.predict(x)
     ]
 
     output_filenames = [
@@ -194,9 +194,9 @@ def evaluate(
     metric_type: str = 'mse'
 ):
     
-    descriptor, spectrum_transformer, pipeline = _load_components_from_model_dir(
+    x_transformer, y_transformer, pipeline = _load_objects_from_model_dir(
         model,
-        components = [
+        objects = [
             'descriptor',
             'spectrum_transformer',
             'pipeline'
@@ -207,8 +207,8 @@ def evaluate(
     x, y = load_dataset_from_data_src(
         x_data_src,
         y_data_src,
-        x_transformer = descriptor,
-        y_transformer = spectrum_transformer,
+        x_transformer = x_transformer,
+        y_transformer = y_transformer,
         verbose = True
     )
     for data, data_src in zip((x, y), (x_data_src, y_data_src)):
@@ -271,24 +271,24 @@ def _print_cross_validation_results(
 
 def _summarise_config_params(
     config: dict,
-    components: list
+    objects: list
 ):
 
-    for component in components:
-        print(f'\n{component.replace("_", " ")} params:')
-        utils.print_nested_dict(config[component])
+    for object in objects:
+        print(f'\n{object.replace("_", " ")} params:')
+        utils.print_nested_dict(config[object])
 
-def _create_components_from_config(
+def _create_objects_from_config(
     config: dict,
     random_state: RandomState
 ) -> tuple:
     
-    descriptor = get_descriptor(
+    x_transformer = get_descriptor(
         config["descriptor"]["type"],
         params = config["descriptor"]["params"]
     )
 
-    spectrum_transformer = get_spectrum_transformer(
+    y_transformer = get_spectrum_transformer(
         config["spectrum_transformer"]["type"],
         params = config["spectrum_transformer"]["params"]
     )
@@ -306,29 +306,29 @@ def _create_components_from_config(
     ])
 
     return tuple(
-        [descriptor, spectrum_transformer, pipeline]
+        [x_transformer, y_transformer, pipeline]
     )
 
-def _save_components_to_model_dir(
+def _save_objects_to_model_dir(
     model_dir: Path,
-    components: dict
+    objects: dict
 ):
     
-    for name, component in components.items():
+    for name, object in objects.items():
         with open(model_dir / f'{name}.pkl', 'wb') as f:
-            pickle.dump(component, f)
+            pickle.dump(object, f)
 
-def _load_components_from_model_dir(
+def _load_objects_from_model_dir(
     model_dir: Path,
-    components: list
+    objects: list
 ) -> tuple:
     
-    component_files = [
-        model_dir / f'{component}.pkl' for component in components
+    object_files = [
+        model_dir / f'{object}.pkl' for object in objects
     ]
     
     return tuple(
-        [pickle.load(open(f, 'rb')) for f in component_files]
+        [pickle.load(open(f, 'rb')) for f in object_files]
     )
 
 def _write_predictions(
