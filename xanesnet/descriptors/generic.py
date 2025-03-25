@@ -27,7 +27,7 @@ from abc import ABC, abstractmethod
 ################################## CLASSES ####################################
 ###############################################################################
 
-class _Descriptor(ABC):
+class Descriptor(ABC):
     """
     An abstract base class for a descriptor, i.e. a featuriser that transforms
     a set of atoms into a set of features.
@@ -68,7 +68,7 @@ class _Descriptor(ABC):
 
         pass
 
-class _VectorDescriptor(_Descriptor, ABC):
+class VectorDescriptor(Descriptor, ABC):
     """
     An abstract base class for a vector descriptor, i.e. a featuriser that
     transforms a set of atoms into a one-dimensional vector of features.

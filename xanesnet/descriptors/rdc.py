@@ -21,13 +21,13 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import numpy as np
 from ase import Atoms
-from .generic import _VectorDescriptor
+from .generic import VectorDescriptor
 
 ###############################################################################
 ################################## CLASSES ####################################
 ###############################################################################
 
-class RDC(_VectorDescriptor):
+class RDC(VectorDescriptor):
     """
     A class for transforming a molecular system into a radial (or 'pair')
     distribution curve (RDCs). The RDC is - simplistically - like a histogram

@@ -297,7 +297,7 @@ class XANESSpectrumTransformer():
     shifting, slicing, scaling, interpolating, and convolution, on XANES
     spectra; to be used as part of a data loading/preproccesing pipeline,
     e.g., in `xanesnet/datasets.py`, and to provide a common interface
-    matching the `_Descriptor` class in `xanesnet/descriptors/` (e.g., by
+    matching the `Descriptor` class in `xanesnet/descriptors/` (e.g., by
     exposing the `.transform()` and `.get_len()` methods).
     """
 

@@ -19,7 +19,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 ############################### LIBRARY IMPORTS ###############################
 ###############################################################################
 
-from .generic import _Descriptor
+from .generic import Descriptor
 from .rdc import RDC
 from .wacsf import WACSF
 
@@ -30,9 +30,9 @@ from .wacsf import WACSF
 def get_descriptor(
     descriptor_type: str,
     params: dict = None
-) -> _Descriptor:
+) -> Descriptor:
     """
-    Returns a descriptor (`_Descriptor`) instance of the specified type,
+    Returns a descriptor (`Descriptor`) instance of the specified type,
     optionally initialised with a set of parameters that can be passed through
     to the constructor function of the descriptor to override the defaults.
 
@@ -47,7 +47,7 @@ def get_descriptor(
         ValueError: If `descriptor_type` is not an available/valid descriptor.
 
     Returns:
-        _Descriptor: Descriptor.
+        Descriptor: Descriptor.
     """
     
     if params is None:

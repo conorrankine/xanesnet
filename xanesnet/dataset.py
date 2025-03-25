@@ -25,7 +25,7 @@ from tqdm import tqdm
 from ase import io
 from pathlib import Path
 from typing import Union, Optional, Callable
-from xanesnet.descriptors.generic import _Descriptor
+from xanesnet.descriptors.generic import Descriptor
 from xanesnet.xanes import XANESSpectrumTransformer
 
 ###############################################################################
@@ -35,7 +35,7 @@ from xanesnet.xanes import XANESSpectrumTransformer
 def load_dataset_from_data_src(
     x_src: Path,
     y_src: Path = None,
-    x_transformer: _Descriptor = None,
+    x_transformer: Descriptor = None,
     y_transformer: XANESSpectrumTransformer = None,
     verbose: bool = False
 ) -> tuple[np.ndarray, Optional[np.ndarray]]:
@@ -53,8 +53,8 @@ def load_dataset_from_data_src(
         x_src (Path): Source path for input (X) data.
         y_src (Path, optional): Source path for target (Y) data. Defaults to
             None.
-        x_transformer (_Descriptor, optional): Transformer for the input (X)
-            data; expects an instance of the `_Descriptor` class that has the
+        x_transformer (Descriptor, optional): Transformer for the input (X)
+            data; expects an instance of the `Descriptor` class that has the
             `.transform()` method implemented. Defaults to None.
         y_transformer (XANESSpectrumTransformer, optional): Transformer for the
             target (Y) data; expects an instance of the
@@ -97,7 +97,7 @@ def load_dataset_from_data_src(
 
 def _load_from_data_src(
     data_src: Path,
-    data_transformer: Union[_Descriptor, XANESSpectrumTransformer],
+    data_transformer: Union[Descriptor, XANESSpectrumTransformer],
     directory_data_loader: Callable,
     verbose: bool = False
 ) -> np.ndarray:
@@ -110,7 +110,7 @@ def _load_from_data_src(
 
     Args:
         data_src (Path): Source path for data.
-        data_transformer (Union[_Descriptor, XANESSpectrumTransformer]):
+        data_transformer (Union[Descriptor, XANESSpectrumTransformer]):
             Transformer for the data; expects an instance of a class with the
             `.transform()` method implemented.
         directory_data_loader (Callable): Function for loading the data from
@@ -149,21 +149,21 @@ def _load_from_data_src(
         
 def load_x_data_from_dir(
     x_dir: Path,
-    x_transformer: _Descriptor = None,
+    x_transformer: Descriptor = None,
     verbose: bool = False
 ) -> np.ndarray:
     """
     Loads input (X) data from a directory of .xyz files; .xyz files are loaded
     as ase.Atoms objects by the `ase.io.read()` function and transformed into
     molecular descriptors by a transformer (`x_transformer`) that is expected
-    to be an instance of a `_Descriptor` class; a 2D Numpy (`np.ndarray`) array
+    to be an instance of a `Descriptor` class; a 2D Numpy (`np.ndarray`) array
     is returned where each row corresponds to the transformed 1D Numpy array
     representation of each file in the directory.
 
     Args:
         x_dir (Path): Source path for the input (X) data directory.
-        x_transformer (_Descriptor, optional): Transformer for the input (X)
-            data; expects an instance of the `_Descriptor` class. Defaults to
+        x_transformer (Descriptor, optional): Transformer for the input (X)
+            data; expects an instance of the `Descriptor` class. Defaults to
             None.
         verbose (bool, optional): If `True`, and the data source(s) is/are
             a directory/directories, the data source(s) are printed and the
@@ -220,7 +220,7 @@ def load_y_data_from_dir(
 
 def _load_data_from_dir(
     data_dir: Path,
-    data_transformer: Union[_Descriptor, XANESSpectrumTransformer],
+    data_transformer: Union[Descriptor, XANESSpectrumTransformer],
     file_data_loader: Callable,
     verbose: bool = False
 ) -> np.ndarray:
@@ -234,7 +234,7 @@ def _load_data_from_dir(
 
     Args:
         data_dir (Path): Source path for the data directory.
-        data_transformer (Union[_Descriptor, XANESSpectrumTransformer]):
+        data_transformer (Union[Descriptor, XANESSpectrumTransformer]):
             Transformer for the data; expects that  `.transform()` method is
             implemented.
         file_data_loader (Callable): Function for loading files as objects that

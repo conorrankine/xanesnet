@@ -22,13 +22,13 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 import numpy as np
 from ase import Atoms
 from abc import ABC, abstractmethod
-from .generic import _VectorDescriptor
+from .generic import VectorDescriptor
 
 ###############################################################################
 ################################## CLASSES ####################################
 ###############################################################################
 
-class WACSF(_VectorDescriptor):
+class WACSF(VectorDescriptor):
     """
     A class for transforming a molecular system into a weighted atom-centered
     symmetry function (WACSF) descriptor. WACSFs encode the local geometry
