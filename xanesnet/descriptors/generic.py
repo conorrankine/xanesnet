@@ -56,8 +56,9 @@ class _Descriptor(ABC):
         
         pass 
 
+    @property
     @abstractmethod
-    def get_len(
+    def size(
         self
     ) -> int:
         """

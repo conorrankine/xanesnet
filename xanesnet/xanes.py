@@ -385,7 +385,8 @@ class XANESSpectrumTransformer():
         
         return self._e_aux
 
-    def get_len(
+    @property
+    def size(
         self
     ) -> int:
         """

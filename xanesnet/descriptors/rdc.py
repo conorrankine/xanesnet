@@ -103,7 +103,8 @@ class RDC(_VectorDescriptor):
 
         return rdc
 
-    def get_len(
+    @property
+    def size(
         self
     ) -> int:
         

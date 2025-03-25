@@ -258,7 +258,7 @@ def _load_data_from_dir(
             raise FileNotFoundError(
                 f'no files found @ {data_dir}'
             )
-        n_features = data_transformer.get_len()
+        n_features = data_transformer.size
         if n_features == 0:
             raise ValueError(
                 'check data transformer configuration; cannot create '

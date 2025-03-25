@@ -151,7 +151,10 @@ class WACSF(_VectorDescriptor):
 
         return wacsf
 
-    def get_len(self) -> int:
+    @property
+    def size(
+        self
+    ) -> int:
         
         return 1 + self.n_g2 + self.n_g4
 
