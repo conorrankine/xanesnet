@@ -38,16 +38,17 @@ feature_scaling:
   with_std: True
       
 model:
-  hidden_layer_sizes:
-    - 512
-    - 512
-  activation: relu
-  solver: adam
-  alpha: 1.0E-4
-  batch_size: 32
-  learning_rate: constant
-  learning_rate_init: 1.0E-3
-  max_iter: 512
+  params:
+    hidden_layer_sizes:
+      - 512
+      - 512
+    activation: relu
+    solver: adam
+    alpha: 1.0E-4
+    batch_size: 32
+    learning_rate: constant
+    learning_rate_init: 1.0E-3
+    max_iter: 512
 
 kfold:
   n_splits: 5

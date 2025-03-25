@@ -45,18 +45,44 @@ def train(
     y_data_src: Path,
     config: dict
 ):
-       
-    x, y, pipeline, output_dir, _ = _setup_train(
+    
+    random_state = RandomState(seed = config["random_state"]["seed"])
+
+    output_dir = utils.unique_path(Path.cwd(), 'xanesnet_output')
+    if not output_dir.is_dir():
+        output_dir.mkdir(parents = True)
+
+    _summarise_config_params(config)
+
+    descriptor, spectrum_transformer, pipeline = _create_components_from_config(
+        config, random_state = random_state
+    )
+
+    print('\nloading + preprocessing data records from source...')
+    x, y = load_dataset_from_data_src(
         x_data_src,
         y_data_src,
-        config,
+        x_transformer = descriptor,
+        y_transformer = spectrum_transformer,
         verbose = True
     )
+    for data, data_src in zip((x, y), (x_data_src, y_data_src)):
+        print(f'loaded {len(data)} records @ {data_src}')
+
+    for data, label in zip((x, y), ('x', 'y')):
+        with open(output_dir / f'{label}.npy', 'wb') as f:
+            save(f, data)
 
     pipeline.fit(x, y)
 
-    with open(output_dir / 'pipeline.pkl', 'wb') as f:
-        pickle.dump(pipeline, f)
+    _save_components_to_model_dir(
+        output_dir,
+        {
+            'descriptor': descriptor,
+            'spectrum_transformer': spectrum_transformer,
+            'pipeline': pipeline
+        }
+    )
 
     metric = get_metric(config["metric"]["type"].lower())
 
@@ -68,16 +94,28 @@ def validate(
     y_data_src: Path,
     config: dict
 ):
+    
+    random_state = RandomState(seed = config["random_state"]["seed"])
 
-    x, y, pipeline, _, rng = _setup_train(
-        x_data_src,
-        y_data_src,
-        config,
-        verbose = True
+    _summarise_config_params(config)
+
+    descriptor, spectrum_transformer, pipeline = _create_components_from_config(
+        config, random_state = random_state
     )
 
+    print('\nloading + preprocessing data records from source...')
+    x, y = load_dataset_from_data_src(
+        x_data_src,
+        y_data_src,
+        x_transformer = descriptor,
+        y_transformer = spectrum_transformer,
+        verbose = True
+    )
+    for data, data_src in zip((x, y), (x_data_src, y_data_src)):
+        print(f'loaded {len(data)} records @ {data_src}')
+
     cv = RepeatedKFold(
-        **config["kfold"], random_state = rng
+        **config["kfold"], random_state = random_state
     )
 
     metric = get_metric(config["metric"]["type"].lower())
@@ -159,84 +197,6 @@ def evaluate(
     score = metric(y, y_predicted)
     print(f'\nscore: {score:.6f} ({metric_type.upper()})\n')
     
-def _setup_train(
-    x_data_src: Path,
-    y_data_src: Path,
-    config: dict,
-    verbose: bool = False
-) -> tuple[ndarray, ndarray, Pipeline, Path, RandomState]:
-    
-    rng = RandomState(seed = config["random_state"]["seed"])
-
-    output_dir = utils.unique_path(Path.cwd(), 'xanesnet_output')
-    if not output_dir.is_dir():
-        output_dir.mkdir(parents = True)
-  
-    if verbose:
-        print(f'\n{config["descriptor"]["type"].upper()} parameters:')
-        utils.print_nested_dict(
-            config["descriptor"]["params"]
-        )
-
-    descriptor = get_descriptor(
-        config["descriptor"]["type"],
-        params = config["descriptor"]["params"]
-    )
-
-    with open(output_dir / 'descriptor.pkl', 'wb') as f:
-        pickle.dump(descriptor, f)
-
-    if verbose:
-        print('\nspectrum preprocessing parameters:')
-        utils.print_nested_dict(
-            config["spectrum_transformer"]["params"]
-        )
-
-    spectrum_transformer = get_spectrum_transformer(
-        config["spectrum_transformer"]["type"],
-        params = config["spectrum_transformer"]["params"]
-    )
-
-    with open(output_dir / 'spectrum_transformer.pkl', 'wb') as f:
-        pickle.dump(spectrum_transformer, f)
-
-    if verbose:
-        print('\nloading + preprocessing data records from source...')
-    x, y = load_dataset_from_data_src(
-        x_data_src,
-        y_data_src,
-        x_transformer = descriptor,
-        y_transformer = spectrum_transformer,
-        verbose = verbose
-    )
-    if verbose:
-        for data, data_src in zip((x, y), (x_data_src, y_data_src)):
-            print(f'loaded {len(data)} records @ {data_src}')
-
-    for data, label in zip((x, y), ('x', 'y')):
-        with open(output_dir / f'{label}.npy', 'wb') as f:
-            save(f, data)
-
-    if verbose:
-        print('\nneural network parameters:')
-        utils.print_nested_dict(
-            config["model"]
-        )
-
-    pipeline = Pipeline([
-        ('feature_selection', VarianceThreshold(
-            **config['feature_selection'])
-        ),
-        ('feature_scaling', StandardScaler(
-            **config['feature_scaling'])
-        ),
-        ('model', MLPRegressor(
-            **config['model'], random_state = rng)
-        )
-    ])
-
-    return x, y, pipeline, output_dir, rng
-
 def _cross_validate(
     pipeline: Pipeline,
     x: ndarray,
@@ -284,6 +244,60 @@ def _print_cross_validation_results(
             f'{time:>9.1f}s'
         )
     print('-' * 60)
+
+def _summarise_config_params(
+    config: dict
+):
+    
+    components = [
+        'descriptor',
+        'spectrum_transformer',
+        'model'
+    ]
+
+    for component in components:
+        print(f'\n{component.replace("_", " ")} params:')
+        utils.print_nested_dict(config[component])
+
+def _create_components_from_config(
+    config: dict,
+    random_state: RandomState
+) -> tuple:
+    
+    descriptor = get_descriptor(
+        config["descriptor"]["type"],
+        params = config["descriptor"]["params"]
+    )
+
+    spectrum_transformer = get_spectrum_transformer(
+        config["spectrum_transformer"]["type"],
+        params = config["spectrum_transformer"]["params"]
+    )
+
+    pipeline = Pipeline([
+        ('feature_selection', VarianceThreshold(
+            **config['feature_selection'])
+        ),
+        ('feature_scaling', StandardScaler(
+            **config['feature_scaling'])
+        ),
+        ('model', MLPRegressor(
+            **config['model']['params'], random_state = random_state)
+        )
+    ])
+
+    return tuple(
+        [descriptor, spectrum_transformer, pipeline]
+    )
+
+def _save_components_to_model_dir(
+    model_dir: Path,
+    components: dict
+):
+    
+    for name, component in components.items():
+        with open(model_dir / f'{name}.pkl', 'wb') as f:
+            pickle.dump(component, f)
 
 def _load_components_from_model_dir(
     model_dir: Path
