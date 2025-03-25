@@ -375,12 +375,13 @@ class XANESSpectrumTransformer():
         
         return spectrum_
     
-    def get_energy_grid(
+    @property
+    def energy_grid(
         self
     ) -> np.ndarray:
         """
         Returns:
-            np.ndarray: Energy grid.
+            np.ndarray: Discrete energy bins.
         """
         
         return self._e_aux

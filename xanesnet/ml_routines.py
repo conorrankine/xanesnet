@@ -322,7 +322,7 @@ def _write_predictions(
     for i, y in tqdm(
         enumerate(y_predicted), total = len(y_predicted), ncols = 60
     ):
-        xanes = XANES(spectrum_transformer._e_aux, y, e0 = 0.0)
+        xanes = XANES(spectrum_transformer.energy_grid, y, e0 = 0.0)
         output_filename = (
             output_filenames[i] if output_filenames else f'{i:06d}.{format}'
         ) 
