@@ -52,7 +52,14 @@ def train(
     if not output_dir.is_dir():
         output_dir.mkdir(parents = True)
 
-    _summarise_config_params(config)
+    _summarise_config_params(
+        config,
+        components = [
+            'descriptor',
+            'spectrum_transformer',
+            'model'
+        ]
+    )
 
     descriptor, spectrum_transformer, pipeline = _create_components_from_config(
         config, random_state = random_state
@@ -97,7 +104,14 @@ def validate(
     
     random_state = RandomState(seed = config["random_state"]["seed"])
 
-    _summarise_config_params(config)
+    _summarise_config_params(
+        config,
+        components = [
+            'descriptor',
+            'spectrum_transformer',
+            'model'
+        ]
+    )
 
     descriptor, spectrum_transformer, pipeline = _create_components_from_config(
         config, random_state = random_state
@@ -257,13 +271,8 @@ def _print_cross_validation_results(
 
 def _summarise_config_params(
     config: dict,
+    components: list
 ):
-    
-    components = [
-        'descriptor',
-        'spectrum_transformer',
-        'model'
-    ]
 
     for component in components:
         print(f'\n{component.replace("_", " ")} params:')
