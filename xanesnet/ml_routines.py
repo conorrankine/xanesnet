@@ -45,6 +45,14 @@ def train(
     y_data_src: Path,
     config: dict
 ):
+    """
+    #TODO: complete docstring!
+
+    Args:
+        x_data_src (Path): _description_
+        y_data_src (Path): _description_
+        config (dict): _description_
+    """
     
     random_state = RandomState(seed = config["random_state"]["seed"])
 
@@ -101,6 +109,14 @@ def validate(
     y_data_src: Path,
     config: dict
 ):
+    """
+    #TODO: complete docstring!
+
+    Args:
+        x_data_src (Path): _description_
+        y_data_src (Path): _description_
+        config (dict): _description_
+    """
     
     random_state = RandomState(seed = config["random_state"]["seed"])
 
@@ -149,6 +165,13 @@ def predict(
     x_data_src: Path,
     model: Path
 ):
+    """
+    #TODO: complete docstring!
+
+    Args:
+        x_data_src (Path): _description_
+        model (Path): _description_
+    """
     
     output_dir = utils.unique_path(Path.cwd(), 'xanesnet_output')
     if not output_dir.is_dir():
@@ -193,6 +216,15 @@ def evaluate(
     model: Path,
     metric_type: str = 'mse'
 ):
+    """
+    #TODO: complete docstring!
+
+    Args:
+        x_data_src (Path): _description_
+        y_data_src (Path): _description_
+        model (Path): _description_
+        metric_type (str, optional): _description_. Defaults to 'mse'.
+    """
     
     x_transformer, y_transformer, pipeline = _load_objects_from_model_dir(
         model,
@@ -228,6 +260,19 @@ def _cross_validate(
     cv: BaseCrossValidator,
     metric: callable
 ) -> dict:
+    """
+    #TODO: complete docstring!
+
+    Args:
+        pipeline (Pipeline): _description_
+        x (ndarray): _description_
+        y (ndarray): _description_
+        cv (BaseCrossValidator): _description_
+        metric (callable): _description_
+
+    Returns:
+        dict: _description_
+    """
     
     cv_results = {}
 
@@ -255,6 +300,12 @@ def _cross_validate(
 def _print_cross_validation_results(
     cv_results: dict
 ):
+    """
+    #TODO: complete docstring!
+
+    Args:
+        cv_results (dict): _description_
+    """
     
     print('-' * 60)
     print(f'{"fold":<10}{"train":>20}{"valid":>20}{"time":>10}')
@@ -273,6 +324,13 @@ def _summarise_config_params(
     config: dict,
     objects: list
 ):
+    """
+    #TODO: complete docstring!
+
+    Args:
+        config (dict): _description_
+        objects (list): _description_
+    """
 
     for object in objects:
         print(f'\n{object.replace("_", " ")} params:')
@@ -282,6 +340,16 @@ def _create_objects_from_config(
     config: dict,
     random_state: RandomState
 ) -> tuple:
+    """
+    #TODO: complete docstring!
+
+    Args:
+        config (dict): _description_
+        random_state (RandomState): _description_
+
+    Returns:
+        tuple: _description_
+    """
     
     x_transformer = get_descriptor(
         config["descriptor"]["type"],
@@ -313,6 +381,13 @@ def _save_objects_to_model_dir(
     model_dir: Path,
     objects: dict
 ):
+    """
+    #TODO: complete docstring!
+
+    Args:
+        model_dir (Path): _description_
+        objects (dict): _description_
+    """
     
     for name, object in objects.items():
         with open(model_dir / f'{name}.pkl', 'wb') as f:
@@ -322,6 +397,16 @@ def _load_objects_from_model_dir(
     model_dir: Path,
     objects: list
 ) -> tuple:
+    """
+    #TODO: complete docstring!
+
+    Args:
+        model_dir (Path): _description_
+        objects (list): _description_
+
+    Returns:
+        tuple: _description_
+    """
     
     object_files = [
         model_dir / f'{object}.pkl' for object in objects
@@ -337,6 +422,19 @@ def _write_predictions(
     output_filenames: list = None,
     format: str = 'csv'
 ):
+    """
+    #TODO: complete docstring!
+
+    Args:
+        y_predicted (list[XANES]): _description_
+        output_dir (Path): _description_
+        output_filenames (list, optional): _description_. Defaults to None.
+        format (str, optional): _description_. Defaults to 'csv'.
+
+    Raises:
+        NotADirectoryError: _description_
+        ValueError: _description_
+    """
     
     if not output_dir.is_dir():
         raise NotADirectoryError(
