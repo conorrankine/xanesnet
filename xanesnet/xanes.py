@@ -543,12 +543,13 @@ def _read_from_txt(
     Returns:
         XANES: XANES spectrum.
     """
-    
+
+    e0 = float(f.readline().split()[0])
     energy, absorption = np.loadtxt(
-        f, skiprows = 2, unpack = True
+        f, skiprows = 1, unpack = True
     )
 
-    return XANES(energy, absorption)
+    return XANES(energy, absorption, e0 = e0)
 
 def _read_from_bav(
     f: TextIO
