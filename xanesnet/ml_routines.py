@@ -82,8 +82,16 @@ def validate(
         **config["kfold"], random_state = rng
     )
 
+    metric = get_metric(config["metric"]["type"].lower())
+
     print('\nsplitting data and cross-validating the pipeline...')
-    cv_results = _cross_validate(pipeline, x, y, cv = cv)
+    cv_results = _cross_validate(
+        pipeline,
+        x,
+        y,
+        cv = cv,
+        metric = metric
+    )
     _print_cross_validation_results(cv_results)
     print(f'completed {cv.get_n_splits()} cross-validation cycles\n')
 
@@ -234,7 +242,8 @@ def _cross_validate(
     pipeline: Pipeline,
     x: ndarray,
     y: ndarray,
-    cv: BaseCrossValidator
+    cv: BaseCrossValidator,
+    metric: callable
 ) -> dict:
     
     cv_results = {}
@@ -252,8 +261,8 @@ def _cross_validate(
         
         cv_results.update(
             {f'fold_{i+1}': tuple([
-                pipeline.score(x_train, y_train),
-                pipeline.score(x_valid, y_valid),
+                metric(pipeline.predict(x_train), y_train),
+                metric(pipeline.predict(x_valid), y_valid),
                 elapsed_time
             ])}
         )
