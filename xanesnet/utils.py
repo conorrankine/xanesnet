@@ -77,9 +77,10 @@ def print_nested_dict(
     Raises:
         TypeError: If a `key`:`val` pair has a value of an unsupported type.
     """
-    
+
     indent_str = '  ' * indent
-    key_width = max(10, key_width - (2 * indent))
+    if indent >= 1:
+        key_width = max(10, key_width - 2)
 
     if indent == 0:
         print('-' * (key_width + val_width))
