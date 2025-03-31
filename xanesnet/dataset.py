@@ -24,10 +24,8 @@ import numpy as np
 from tqdm import tqdm
 from ase import io
 from pathlib import Path
-from typing import Union, Optional, Callable, Any
+from typing import Optional, Callable, Any
 from abc import ABC, abstractmethod
-from xanesnet.descriptors.generic import Descriptor
-from xanesnet.xanes import XANESSpectrumTransformer
 
 ###############################################################################
 ################################## CLASSES ####################################
@@ -89,8 +87,8 @@ class BaseTransformer(ABC):
 def load_dataset_from_data_src(
     x_src: Path,
     y_src: Path = None,
-    x_transformer: Descriptor = None,
-    y_transformer: XANESSpectrumTransformer = None,
+    x_transformer: 'BaseTransformer' = None,
+    y_transformer: 'BaseTransformer' = None,
     verbose: bool = False
 ) -> tuple[np.ndarray, Optional[np.ndarray]]:
     """
@@ -105,11 +103,10 @@ def load_dataset_from_data_src(
         x_src (Path): Source path for input (X) data.
         y_src (Path, optional): Source path for target (Y) data. Defaults to
             None.
-        x_transformer (Descriptor, optional): Transformer object for the input
-            (X) data implementing the `.transform()` method. Defaults to None.
-        y_transformer (XANESSpectrumTransformer, optional): Transformer object
-            for the target (Y) data implementing the `.transform()` method.
-            Defaults to None.
+        x_transformer (BaseTransformer, optional): Transformer for the input
+            (X) data; a subclass of `BaseTransformer`. Defaults to None.
+        y_transformer (BaseTransformer, optional): Transformer for the target
+            (Y) data; a subclass of `BaseTransformer`. Defaults to None.
         verbose (bool, optional): If `True`, and the data source(s) is/are
             a directory/directories, the data source(s) are printed and the
             data are loaded with a progress bar. Defaults to `False`.
@@ -147,7 +144,7 @@ def load_dataset_from_data_src(
 
 def _load_from_data_src(
     data_src: Path,
-    data_transformer: Union[Descriptor, XANESSpectrumTransformer],
+    data_transformer: 'BaseTransformer',
     directory_data_loader: Callable,
     verbose: bool = False
 ) -> np.ndarray:
@@ -159,9 +156,8 @@ def _load_from_data_src(
 
     Args:
         data_src (Path): Source path for data.
-        data_transformer (Union[Descriptor, XANESSpectrumTransformer]):
-            Transformer object for the data implementing the `.transform()`
-            method. Defaults to None.
+        data_transformer (BaseTransformer): Transformer for the data; a
+            subclass of `BaseTransformer`.
         directory_data_loader (Callable): Function for loading the data from
             a directory; the function is expected to take both the data source
             (`data_src`) and transformer (`data_transformer`) as arguments.
@@ -200,7 +196,7 @@ def _load_from_data_src(
         
 def load_x_data_from_dir(
     x_dir: Path,
-    x_transformer: Descriptor = None,
+    x_transformer: 'BaseTransformer' = None,
     verbose: bool = False
 ) -> np.ndarray:
     """
@@ -212,8 +208,8 @@ def load_x_data_from_dir(
      
     Args:
         x_dir (Path): Source path for the input (X) data directory.
-        x_transformer (Descriptor, optional): Transformer object for the input
-            (X) data implementing the `.transform()` method. Defaults to None.
+        x_transformer (BaseTransformer, optional): Transformer for the input
+            (X) data; a subclass of `BaseTransformer`. Defaults to None.
         verbose (bool, optional): If `True`, the data source is printed and the
             data are loaded with a progress bar. Defaults to `False`.
 
@@ -233,7 +229,7 @@ def load_x_data_from_dir(
 
 def load_y_data_from_dir(
     y_dir: Path,
-    y_transformer: XANESSpectrumTransformer = None,
+    y_transformer: 'BaseTransformer' = None,
     verbose: bool = False
 ) -> np.ndarray:
     """
@@ -245,9 +241,8 @@ def load_y_data_from_dir(
     
     Args:
         y_dir (Path): Source path for the target (Y) data directory.
-        y_transformer (XANESSpectrumTransformer, optional): Transformer object
-            for the target (Y) data implementing the `.transform()` method.
-            Defaults to None.
+        y_transformer (BaseTransformer, optional): Transformer for the target
+            (Y) data; a subclass of `BaseTransformer`. Defaults to None.
         verbose (bool, optional): If `True`, the data source is printed and the
             data are loaded with a progress bar. Defaults to `False`.
 
@@ -267,7 +262,7 @@ def load_y_data_from_dir(
 
 def _load_data_from_dir(
     data_dir: Path,
-    data_transformer: Union[Descriptor, XANESSpectrumTransformer],
+    data_transformer: 'BaseTransformer',
     file_data_loader: Callable,
     verbose: bool = False
 ) -> np.ndarray:
@@ -278,8 +273,8 @@ def _load_data_from_dir(
     
     Args:
         data_dir (Path): Source path for the data directory.
-        data_transformer (Union[Descriptor, XANESSpectrumTransformer]):
-            Transformer object implementing the  `.transform()` method.
+        data_transformer (BaseTransformer): Transformer for the data; a
+            subclass of `BaseTransformer`.
         file_data_loader (Callable): Function for loading files as objects that
             `data_transformer` can work with using the `.transform()` method.
         verbose (bool, optional): If `True`, the data source is printed and the
