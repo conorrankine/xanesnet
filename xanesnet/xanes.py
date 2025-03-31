@@ -190,8 +190,7 @@ class XANES():
         m_aux = np.interp(e_aux, self._e, self._m)
 
         # create the convolutional filter `conv_filter`
-        e_, e0_ = np.meshgrid(e_aux, e_aux)
-        conv_filter = _lorentzian(e_, e0_, width)
+        conv_filter = _get_conv_filter(e_aux, width)
 
         # convolve `m_aux` with the convolution filter `conv_filter`
         m_aux = np.sum(conv_filter * m_aux, axis = 1)
@@ -490,6 +489,35 @@ def _get_conv_width(
             'convolution type; try, e.g., \'fixed_width\', '
             '\'seah_dench\', or \'arctangent\''
         )
+
+def _get_conv_filter(
+    e_rel: np.ndarray,
+    width: Union[float, np.ndarray]
+) -> np.ndarray:
+    """
+    Returns a (2D) array of Lorentzian convolutional filters with variable
+    centers and (optionally) widths defined over a (1D) energy grid; each
+    Lorentzian convolutional filter is centered at a different energy
+    gridpoint, i.e., the i^{th} row of the array of Lorentzian convolutional
+    filters contains a Lorentzian function defined over `x` = `e_rel` with
+    the center `x0` = `e_rel[i]` and `width` = `width[i]` (else `width` =
+    `width` if `width` is a float rather than a np.ndarray).
+
+    Args:
+        e_rel (np.ndarray): Energies (in eV) relative to the X-ray absorption
+            edge.
+        width (Union[float, np.ndarray]): Width(s) of the Lorentzians (in
+            eV); if scalar (float), all Lorentzians will have constant width,
+            else, if a np.ndarray, Lorentzians will have variable width (e.g.,
+            the i^{th} Lorentzian will have a width = `width[i]`).
+
+    Returns:
+        np.ndarray: (2D) Array of Lorentzian convolutional filters. 
+    """
+    
+    return _lorentzian(
+        np.meshgrid(e_rel, e_rel), width
+    )    
 
 def get_spectrum_transformer(
     transformer_type: str,
