@@ -19,13 +19,13 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 ############################### LIBRARY IMPORTS ###############################
 ###############################################################################
 
-import xanesnet as xn
 import numpy as np
 from tqdm import tqdm
-from ase import io
 from pathlib import Path
 from typing import Optional, Callable
 from .templates import BaseTransformer
+from ase.io import read as read_xyz
+from .xanes import read as read_xanes
 
 ###############################################################################
 ################################## FUNCTIONS ##################################
@@ -167,7 +167,7 @@ def load_x_data_from_dir(
 
     x = _load_data_from_dir(
         x_dir,
-        data_loader = io.read,
+        data_loader = read_xyz,
         data_transformer = x_transformer,
         verbose = verbose
     )
@@ -200,7 +200,7 @@ def load_y_data_from_dir(
 
     y = _load_data_from_dir(
         y_dir,
-        data_loader = xn.xanes.read,
+        data_loader = read_xanes,
         data_transformer = y_transformer,
         verbose = verbose
     )
