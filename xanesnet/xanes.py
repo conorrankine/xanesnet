@@ -129,11 +129,7 @@ class XANES():
     def convolve(
         self,
         conv_type: str = 'fixed_width',
-        width: float = 2.0,
-        ef: float = -5.0,
-        ec: float = 30.0,
-        el: float = 30.0,
-        width_max: float = 15.0
+        conv_params: dict = None
     ):
         """
         Convolves the XANES spectrum with either a fixed-width (`width`; eV)
@@ -150,33 +146,30 @@ class XANES():
             conv_type (str, optional): type of convolution; options are
                 'fixed_width', 'seah_dench_model', and 'arctangent_model'.
                 Defaults to 'fixed_width'.
-            width (float, optional): width (in eV) of the Lorentzian function
-                used in the convolution if `conv_type` == 'fixed_width'; if
-                `conv_type` == 'seah_dench_model' or 'arctangent_model', this
-                is the initial width of the (energy-dependent) Lorentzian.            
-                Defaults to 2.0.
-            ef (float, optional): the Fermi energy (in eV, relative to `e0`);
-                cross-sectional contributions from the occupied states below
-                the Fermi energy are removed.
-                Defaults to -5.0.
-            ec (float, optional): the centre of the arctangent function (in eV,
-                relative to `e0`); used if `conv_type` == 'arctangent_model'.
-                Defaults to 30.0.
-            el (float, optional): the width of the arctangent function (in eV);
-                used if `conv_type` == 'arctangent_model'.
-                Defaults to 30.0.
-            width_max (float, optional): the maximum width (in eV) used in the
-                convolution; used if `conv_type` == 'seah_dench_model' or
-                'arctangent_model'.
-                Defaults to 15.0.
+            conv_params (dict, optional): Convolution parameters passed to the
+                convolution width calculation function. Defaults to None.
 
         Raises:
-            ValueError: _description_
+            ValueError: If `conv_type` is not one of 'fixed_width',
+                'seah_dench', or 'arctangent'.
         """
+
+        if conv_type not in ('fixed_width', 'seah_dench', 'arctangent'):
+            raise ValueError(
+                f'convolution type {conv_type} is not a recognised/supported '
+                'convolution type; try, e.g., \'fixed_width\', '
+                '\'seah_dench\', or \'arctangent\''                
+            )
+
+        if conv_params is None:
+            conv_params = {}
+
+        conv_params.setdefault('width', 2.0)
+        conv_params.setdefault('ef', -1.0)
 
         de = np.min(np.diff(self._e))
 
-        pad = de * int((50.0 * width) / de)
+        pad = de * int((50.0 * conv_params['width']) / de)
 
         e_aux = np.linspace(
             np.min(self._e) - pad,
@@ -184,34 +177,19 @@ class XANES():
             int((np.ptp(self._e) + (2.0 * pad)) / de) + 1
         )
 
-        if conv_type == 'fixed_width':
-            pass
-        elif conv_type == 'seah_dench_model':
-            width = _calc_seah_dench_conv_width(
-                e_rel = e_aux - self._e0,
-                width = width,
-                ef = ef,
-                width_max = width_max
-            )
-        elif conv_type == 'arctangent_model':
-            width = _calc_arctangent_conv_width(
-                e_rel = e_aux - self._e0,
-                width = width,
-                ef = ef,
-                ec = ec,
-                el = el,
-                width_max = width_max
-            )
-        else:
-            raise ValueError('the convolution type is not recognised; try'\
-                '`fixed_width` or `arctangent`')
+        width = _get_conv_width(
+            e_aux - self._e0,
+            conv_type = conv_type,
+            conv_params = conv_params
+        )
 
         # remove cross-sectional contributions to `m` below `ef`
-        self._m[self._e < (self._e0 + ef)] = 0.0
+        self._m[self._e < (self._e0 + conv_params['ef'])] = 0.0
 
         # project `m` onto the auxilliary energy scale `e_aux`
         m_aux = np.interp(e_aux, self._e, self._m)
 
+        # create the convolutional filter `conv_filter`
         e_, e0_ = np.meshgrid(e_aux, e_aux)
         conv_filter = _lorentzian(e_, e0_, width)
 
@@ -255,8 +233,8 @@ class XANESSpectrumTransformer(BaseTransformer):
         e_max: float = 120.0,
         n_bins: int = 150,
         scale: bool = True,
-        convolve: bool = True,
-        convolution_params: dict = None
+        conv_type: str = None,
+        conv_params: dict = None
     ):
         """
         Args:
@@ -270,13 +248,12 @@ class XANESSpectrumTransformer(BaseTransformer):
                 spectral window/slice. Defaults to 150.
             scale (bool, optional): Toggles spectrum scaling using the
                 'edge-step' approach. Defaults to `True`.
-            convolve (bool, optional): Toggles spectrum convolution with a
-                fixed-width or energy-dependent-width Lorentzian filter.
-                Defaults to `True`.
-            convolution_params (dict, optional): Dictionary of convolution
-                parameters / kwargs that are passed to the `.convolve()`
-                method to define the convolution type and Lorentzian filter.
-                Defaults to `None`.
+            conv_type (str, optional): Convolution type; options are
+                'fixed_width', 'seah_dench', and 'arctangent'. If None,
+                spectra are not convolved. Defaults to None.
+            conv_params (dict, optional): Convolution parameters passed through
+                to the convolution width calculation function. Defaults to
+                None.
         """
         
         # TODO: sanity-check inputs and raise errors if necessary
@@ -289,10 +266,8 @@ class XANESSpectrumTransformer(BaseTransformer):
 
         self.scale = scale
 
-        self.convolve = convolve
-        self.convolution_params = (
-            convolution_params if convolution_params is not None else {}
-        )
+        self.conv_type = conv_type
+        self.conv_params = conv_params
 
     def transform(
         self,
@@ -311,8 +286,11 @@ class XANESSpectrumTransformer(BaseTransformer):
             np.ndarray: Transformed XANES spectrum.
         """
 
-        if self.convolve:
-            spectrum.convolve(**self.convolution_params)
+        if self.conv_type:
+            spectrum.convolve(
+                conv_type = self.conv_type,
+                conv_params = self.conv_params
+            )
 
         if self.scale:
             spectrum.scale()
@@ -467,8 +445,8 @@ def _calc_arctangent_conv_width(
 
 def _get_conv_width(
     e_rel: np.ndarray,
-    conv_type: str = 'fixed_width',
-    conv_params: dict = None
+    conv_type: str,
+    conv_params: dict
 ) -> Union[float, np.ndarray]:
     """
     Returns the width(s) of the fixed-width or energy-dependent Lorentzian(s)
@@ -477,10 +455,10 @@ def _get_conv_width(
     Args:
         e_rel (np.ndarray): Energies (in eV) relative to the X-ray absorption
             edge.
-        conv_type (str, optional): Convolution type; options are 'fixed_width',
-            'seah_dench', and 'arctangent'. Defaults to 'fixed_width'.
-        conv_params (dict, optional): Convolution parameters passed through to
-            the convolution width calculation function. Defaults to None.
+        conv_type (str): Convolution type; options are 'fixed_width',
+            'seah_dench', and 'arctangent'.
+        conv_params (dict): Convolution parameters passed through to the
+            convolution width calculation function.
 
     Raises:
         ValueError: If `conv_type` is not one of 'fixed_width', 'seah_dench',
@@ -497,7 +475,7 @@ def _get_conv_width(
         conv_params = {}
 
     if conv_type == 'fixed_width':
-        return conv_params['width']
+            return conv_params['width']
     elif conv_type == 'seah_dench':
         return _calc_seah_dench_conv_width(
             e_rel = e_rel, **conv_params
@@ -509,8 +487,8 @@ def _get_conv_width(
     else:
         raise ValueError(
             f'convolution type {conv_type} is not a recognised/supported '
-            'convolution type; try, e.g., \'fixed_width\', \'seah_dench\', '
-            'or \'arctangent\''
+            'convolution type; try, e.g., \'fixed_width\', '
+            '\'seah_dench\', or \'arctangent\''
         )
 
 def get_spectrum_transformer(
