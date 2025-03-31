@@ -122,15 +122,15 @@ def load_dataset_from_data_src(
     
     x = _load_from_data_src(
         x_src,
+        data_loader = load_x_data_from_dir,
         data_transformer = x_transformer,
-        directory_data_loader = load_x_data_from_dir,
         verbose = verbose        
     )
 
     y = _load_from_data_src(
         y_src,
+        data_loader = load_y_data_from_dir,
         data_transformer = y_transformer,
-        directory_data_loader = load_y_data_from_dir,
         verbose = verbose
     ) if y_src else None
 
@@ -156,11 +156,11 @@ def _load_from_data_src(
 
     Args:
         data_src (Path): Source path for data.
-        data_transformer (BaseTransformer): Transformer for the data; a
-            subclass of `BaseTransformer`.
         data_loader (Callable): Callable for loading the data files from a
             directory; the callable is expected to take both the data source
             (`data_src`) and transformer (`data_transformer`) as arguments.
+        data_transformer (BaseTransformer): Transformer for the data; a
+            subclass of `BaseTransformer`.
         verbose (bool, optional): If `True`, and the data source is a
             directory, the data source is printed and the data are loaded with
             a progress bar. Defaults to `False`.
@@ -220,8 +220,8 @@ def load_x_data_from_dir(
 
     x = _load_data_from_dir(
         x_dir,
+        data_loader = io.read,
         data_transformer = x_transformer,
-        file_data_loader = io.read,
         verbose = verbose
     )
     
@@ -253,8 +253,8 @@ def load_y_data_from_dir(
 
     y = _load_data_from_dir(
         y_dir,
+        data_loader = xn.xanes.read,
         data_transformer = y_transformer,
-        file_data_loader = xn.xanes.read,
         verbose = verbose
     )
 
@@ -268,17 +268,17 @@ def _load_data_from_dir(
 ) -> np.ndarray:
     """
     Loads data from a directory of files; files are loaded as objects by the
-    `file_data_loader` function and transformed into np.ndarrays by the
-    `.transform()` method of the `data_transformer` object.  
+    data loader function (`data_loader`) and transformed into np.ndarrays by
+    the `.transform()` method of the transformer (`data_transformer`).  
     
     Args:
         data_dir (Path): Source path for the data directory.
-        data_transformer (BaseTransformer): Transformer for the data; a
-            subclass of `BaseTransformer`.
         data_loader (Callable): Callable for loading a data file; the callable
             is expected to take the data source (`data_src`) as an argument
             and return a compatible object for the `.transform()` method of
             the transformer (`data_transformer`).
+        data_transformer (BaseTransformer): Transformer for the data; a
+            subclass of `BaseTransformer`.
         verbose (bool, optional): If `True`, the data source is printed and the
             data are loaded with a progress bar. Defaults to `False`.
 
