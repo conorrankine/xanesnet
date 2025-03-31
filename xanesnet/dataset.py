@@ -144,8 +144,8 @@ def load_dataset_from_data_src(
 
 def _load_from_data_src(
     data_src: Path,
+    data_loader: Callable,
     data_transformer: 'BaseTransformer',
-    directory_data_loader: Callable,
     verbose: bool = False
 ) -> np.ndarray:
     """
@@ -158,8 +158,8 @@ def _load_from_data_src(
         data_src (Path): Source path for data.
         data_transformer (BaseTransformer): Transformer for the data; a
             subclass of `BaseTransformer`.
-        directory_data_loader (Callable): Function for loading the data from
-            a directory; the function is expected to take both the data source
+        data_loader (Callable): Callable for loading the data files from a
+            directory; the callable is expected to take both the data source
             (`data_src`) and transformer (`data_transformer`) as arguments.
         verbose (bool, optional): If `True`, and the data source is a
             directory, the data source is printed and the data are loaded with
@@ -180,7 +180,7 @@ def _load_from_data_src(
             data_src
         )
     elif data_src.is_dir():
-        return directory_data_loader(
+        return data_loader(
             data_src,
             data_transformer,
             verbose = verbose
@@ -262,8 +262,8 @@ def load_y_data_from_dir(
 
 def _load_data_from_dir(
     data_dir: Path,
+    data_loader: Callable,
     data_transformer: 'BaseTransformer',
-    file_data_loader: Callable,
     verbose: bool = False
 ) -> np.ndarray:
     """
@@ -275,8 +275,10 @@ def _load_data_from_dir(
         data_dir (Path): Source path for the data directory.
         data_transformer (BaseTransformer): Transformer for the data; a
             subclass of `BaseTransformer`.
-        file_data_loader (Callable): Function for loading files as objects that
-            `data_transformer` can work with using the `.transform()` method.
+        data_loader (Callable): Callable for loading a data file; the callable
+            is expected to take the data source (`data_src`) as an argument
+            and return a compatible object for the `.transform()` method of
+            the transformer (`data_transformer`).
         verbose (bool, optional): If `True`, the data source is printed and the
             data are loaded with a progress bar. Defaults to `False`.
 
@@ -321,7 +323,7 @@ def _load_data_from_dir(
             if f.is_file():
                 try:
                     data[i,:] = data_transformer.transform(
-                        file_data_loader(f)
+                        data_loader(f)
                     )
                 except Exception:
                     print(f'error encountered processing file: {f}')
