@@ -465,6 +465,54 @@ def _calc_arctangent_conv_width(
         width_max * ((1.0 / 2.0) + (1.0 / np.pi) * np.arctan(arctan))
     )
 
+def _get_conv_width(
+    e_rel: np.ndarray,
+    conv_type: str = 'fixed_width',
+    conv_params: dict = None
+) -> Union[float, np.ndarray]:
+    """
+    Returns the width(s) of the fixed-width or energy-dependent Lorentzian(s)
+    under the specified type of convolutional model.
+
+    Args:
+        e_rel (np.ndarray): Energies (in eV) relative to the X-ray absorption
+            edge.
+        conv_type (str, optional): Convolution type; options are 'fixed_width',
+            'seah_dench', and 'arctangent'. Defaults to 'fixed_width'.
+        conv_params (dict, optional): Convolution parameters passed through to
+            the convolution width calculation function. Defaults to None.
+
+    Raises:
+        ValueError: If `conv_type` is not one of 'fixed_width', 'seah_dench',
+            or 'arctangent'.
+
+    Returns:
+        Union[float, np.ndarray]: Width of the Lorentzian if `conv_type` is
+            'fixed width', else an array of values corresponding to the widths
+            of the energy-dependent Lorentzians under the specified type of
+            convolutional model if `conv_type` is 'seah_dench' or 'arctangent'.
+    """
+    
+    if conv_params is None:
+        conv_params = {}
+
+    if conv_type == 'fixed_width':
+        return conv_params['width']
+    elif conv_type == 'seah_dench':
+        return _calc_seah_dench_conv_width(
+            e_rel = e_rel, **conv_params
+        )
+    elif conv_type == 'arctangent':
+        return _calc_arctangent_conv_width(
+            e_rel = e_rel, **conv_params
+        )
+    else:
+        raise ValueError(
+            f'convolution type {conv_type} is not a recognised/supported '
+            'convolution type; try, e.g., \'fixed_width\', \'seah_dench\', '
+            'or \'arctangent\''
+        )
+
 def get_spectrum_transformer(
     transformer_type: str,
     params: dict = None
