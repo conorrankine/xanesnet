@@ -19,8 +19,6 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 ############################### LIBRARY IMPORTS ###############################
 ###############################################################################
 
-from xanesnet.descriptors.generic import (
-    _Descriptor, _VectorDescriptor
-)
-from xanesnet.descriptors.rdc import RDC
-from xanesnet.descriptors.wacsf import WACSF
+from .rdc import RDC
+from .wacsf import WACSF
+from .descriptors import get_descriptor

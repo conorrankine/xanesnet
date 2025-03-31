@@ -19,42 +19,48 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 ############################### LIBRARY IMPORTS ###############################
 ###############################################################################
 
-from typing import Callable
-from sklearn.metrics import (
-    mean_squared_error,
-    mean_absolute_error
-)
+from .generic import Descriptor
+from .rdc import RDC
+from .wacsf import WACSF
 
 ###############################################################################
 ################################## FUNCTIONS ##################################
 ###############################################################################
 
-def get_metric(
-    metric_type: str
-) -> Callable:
+def get_descriptor(
+    descriptor_type: str,
+    params: dict = None
+) -> Descriptor:
     """
-    Returns a metric/"scoring" function of the specified type; a metric
-    function has the form f(`y_true`, `y_predicted`, *) -> `loss`.
+    Returns a descriptor (`Descriptor`) instance of the specified type,
+    optionally initialised with a set of parameters that can be passed through
+    to the constructor function of the descriptor to override the defaults.
 
     Args:
-        metric_type (str): Metric type, e.g., 'mse' (mean-squared error); 'mae'
-            (mean absolute error); etc.
+        descriptor_type (str): Descriptor type, e.g., 'rdc' (radial
+            distribution functions); 'wacsf' (weighted atom-centred symmetry
+            functions); etc.
+        params (dict, optional): Parameters passed through to the constructor
+            function of the descriptor. Defaults to None.
 
     Raises:
-        ValueError: If `metric_type` is not not a valid/supported metric.
+        ValueError: If `descriptor_type` is not an available/valid descriptor.
 
     Returns:
-        callable: Metric function.
+        Descriptor: Descriptor.
     """
     
-    metrics = {
-        'mse': mean_squared_error,
-        'mae': mean_absolute_error
+    if params is None:
+        params = {}
+
+    descriptors = {
+        'rdc': RDC,
+        'wacsf': WACSF
     }
 
     try:
-        return metrics.get(metric_type)
+        return descriptors.get(descriptor_type)(**params)
     except KeyError:
         raise ValueError(
-            f'\'{metric_type}\' is not a valid/supported metric'
+            f'\'{descriptor_type}\' is not an available/valid descriptor'
         ) from None

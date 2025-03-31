@@ -23,6 +23,7 @@ import xanesnet as xn
 import datetime
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
+from .config import load_config
 
 ###############################################################################
 ############################## ARGUMENT PARSING ###############################
@@ -60,7 +61,24 @@ def parse_args() -> Namespace:
         help = 'path to the output/target (Y) data source'
     )    
     train_p.add_argument(
-        '--config', '-c', type = Path, default = None,
+        '-c', '--config', type = Path, default = None,
+        help = 'path to a .yaml configurational file'
+    )
+
+    validate_p = sub_p.add_parser(
+        'validate',
+        help = '(cross-)validate a model'                       
+    )
+    validate_p.add_argument(
+        'x_data_src', type = Path, 
+        help = 'path to the input (X) data source'
+    )
+    validate_p.add_argument(
+        'y_data_src', type = Path, 
+        help = 'path to the output/target (Y) data source'
+    )    
+    validate_p.add_argument(
+        '-c', '--config', type = Path, default = None,
         help = 'path to a .yaml configurational file'
     )
 
@@ -75,6 +93,27 @@ def parse_args() -> Namespace:
     predict_p.add_argument(
         'model', type = Path,
         help = 'path to the trained model'
+    )
+
+    evaluate_p = sub_p.add_parser(
+        'evaluate',
+        help = 'evaluate your trained model against a metric'
+    )
+    evaluate_p.add_argument(
+        'x_data_src', type = Path, 
+        help = 'path to the input (X) data source'
+    )
+    evaluate_p.add_argument(
+        'y_data_src', type = Path, 
+        help = 'path to the output/target (Y) data source'
+    )
+    evaluate_p.add_argument(
+        'model', type = Path,
+        help = 'path to the trained model'
+    )
+    evaluate_p.add_argument(
+        '-m', '--metric', type = str, default = 'mse',
+        help = 'metric to use for model evaluation'
     )
 
     args = p.parse_args()
@@ -98,16 +137,34 @@ def main():
             print(line.rstrip())
     print('\n')
 
+    if args.mode in ('train', 'validate'):
+        config = load_config(
+            args.config if args.config is not None else 'xanesnet_2021.yaml'
+        )
+
     if args.mode == 'train':
         xn.train(
             args.x_data_src,
             args.y_data_src,
-            args.config
+            config = config
+        )
+    if args.mode == 'validate':
+        xn.validate(
+            args.x_data_src,
+            args.y_data_src,
+            config = config
         )
     if args.mode == 'predict':
         xn.predict(
             args.x_data_src,
             args.model
+        )
+    if args.mode == 'evaluate':
+        xn.evaluate(
+            args.x_data_src,
+            args.y_data_src,
+            args.model,
+            args.metric
         )
 
     datetime_ = datetime.datetime.now()

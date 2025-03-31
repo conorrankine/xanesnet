@@ -20,16 +20,18 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 ###############################################################################
 
 import yaml
-from typing import Union
 from pathlib import Path
+from typing import Union
 from importlib import resources
-from xanesnet import configs
+from . import configs
 
 ###############################################################################
 ################################## FUNCTIONS ##################################
 ###############################################################################
 
-def load_config(config_f: Union[str, Path]) -> dict:
+def load_config(
+    config_f: Union[str, Path]
+) -> dict:
     """
     Loads a .yaml configuration file (`config_f`). An attempt is made to load
     the .yaml file from the filesystem; if it is not found, an attempt is made

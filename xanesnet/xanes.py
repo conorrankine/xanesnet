@@ -22,6 +22,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 import numpy as np
 from pathlib import Path
 from typing import Union, TextIO
+from .templates import BaseTransformer
 
 ###############################################################################
 ################################## CLASSES ####################################
@@ -291,13 +292,13 @@ def _calc_arctangent_conv_width(
   
     return g
 
-class XANESSpectrumTransformer():
+class XANESSpectrumTransformer(BaseTransformer):
     """
     A class for carrying out sequential preprocessing transforms, e.g.,
     shifting, slicing, scaling, interpolating, and convolution, on XANES
     spectra; to be used as part of a data loading/preproccesing pipeline,
     e.g., in `xanesnet/datasets.py`, and to provide a common interface
-    matching the `_Descriptor` class in `xanesnet/descriptors/` (e.g., by
+    matching the `Descriptor` class in `xanesnet/descriptors/` (e.g., by
     exposing the `.transform()` and `.get_len()` methods).
     """
 
@@ -374,8 +375,20 @@ class XANESSpectrumTransformer():
         )
         
         return spectrum_
+    
+    @property
+    def energy_grid(
+        self
+    ) -> np.ndarray:
+        """
+        Returns:
+            np.ndarray: Discrete energy bins.
+        """
+        
+        return self._e_aux
 
-    def get_len(
+    @property
+    def size(
         self
     ) -> int:
         """
@@ -388,6 +401,43 @@ class XANESSpectrumTransformer():
 ###############################################################################
 ################################## FUNCTIONS ##################################
 ###############################################################################
+
+def get_spectrum_transformer(
+    transformer_type: str,
+    params: dict = None
+) -> 'XANESSpectrumTransformer':
+    """
+    Returns a spectrum transformer instance of the specified type, optionally
+    initialised with a set of parameters that can be passed through to the
+    constructor function of the spectrum transformer to override the defaults.
+
+    Args:
+        transformer_type (str): Transformer type, e.g., 'xanes' (X-ray
+            absorption near-edge spectrum); etc.
+        params (dict, optional): Parameters passed through to the constructor
+            function of the transformer. Defaults to None.
+
+    Raises:
+        ValueError: If `transformer_type` is not an available/valid
+            transformer.
+
+    Returns:
+        XANESSpectrumTransformer: Transformer.
+    """
+    
+    if params is None:
+        params = {}
+
+    transformers = {
+        'xanes': XANESSpectrumTransformer
+    }
+
+    try:
+        return transformers.get(transformer_type)(**params)
+    except KeyError:
+        raise ValueError(
+            f'\'{transformer_type}\' is not an available/valid transformer'
+        ) from None
 
 def read(
     filepath: Union[str, Path],
@@ -496,12 +546,13 @@ def _read_from_txt(
     Returns:
         XANES: XANES spectrum.
     """
-    
+
+    e0 = float(f.readline().split()[0])
     energy, absorption = np.loadtxt(
-        f, skiprows = 2, unpack = True
+        f, skiprows = 1, unpack = True
     )
 
-    return XANES(energy, absorption)
+    return XANES(energy, absorption, e0 = e0)
 
 def _read_from_bav(
     f: TextIO

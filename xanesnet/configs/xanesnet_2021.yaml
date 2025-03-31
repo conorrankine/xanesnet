@@ -2,25 +2,31 @@ random_state:
   seed: 
 
 descriptor:
-  type: rdc
+  type: wacsf
   params:
     r_min: 0.0
     r_max: 6.0
-    dr: 0.05
-    alpha: 10.0
+    n_g2: 32
+    n_g4: 64
+    z:
+      - 1
+      - 2
+      - 4
+      - 8
 
-spectrum:
+spectrum_transformer:
+  type: xanes
   params:
-    e_min: -30.0
-    e_max: 120.0
-    n_bins: 300
+    e_min: -15.0
+    e_max: 60.0
+    n_bins: 226
     scale: True
     convolve: True
     convolution_params:
       conv_type: arctangent_model
-      width: 2.0
+      width: 1.25
       width_max: 15.0
-      ef: -5.0
+      ef: -1.0
       ec: 30.0
       el: 30.0
 
@@ -32,17 +38,21 @@ feature_scaling:
   with_std: True
       
 model:
-  hidden_layer_sizes:
-    - 512
-    - 512
-  activation: relu
-  solver: adam
-  alpha: 0.0001
-  batch_size: auto
-  learning_rate: constant
-  learning_rate_init: 0.001
-  max_iter: 512
-  verbose: True
+  params:
+    hidden_layer_sizes:
+      - 512
+      - 512
+    activation: relu
+    solver: adam
+    alpha: 1.0E-4
+    batch_size: 32
+    learning_rate: constant
+    learning_rate_init: 1.0E-3
+    max_iter: 512
+
+kfold:
+  n_splits: 5
+  n_repeats: 2
 
 metric:
   type: mse

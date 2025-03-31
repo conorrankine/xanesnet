@@ -22,13 +22,13 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 import numpy as np
 from ase import Atoms
 from abc import ABC, abstractmethod
-from xanesnet.descriptors import _VectorDescriptor
+from .generic import VectorDescriptor
 
 ###############################################################################
 ################################## CLASSES ####################################
 ###############################################################################
 
-class WACSF(_VectorDescriptor):
+class WACSF(VectorDescriptor):
     """
     A class for transforming a molecular system into a weighted atom-centered
     symmetry function (WACSF) descriptor. WACSFs encode the local geometry
@@ -51,9 +51,7 @@ class WACSF(_VectorDescriptor):
         l: list = [1.0, -1.0],
         z: list = [1.0],
         g2_parameterisation: str = 'shifted',
-        g4_parameterisation: str = 'centred',
-        use_charge = False,
-        use_spin = False
+        g4_parameterisation: str = 'centred'
     ):
         """
         Args:
@@ -87,15 +85,9 @@ class WACSF(_VectorDescriptor):
                 'centred'. For details, see Marquetand et al.; J. Chem. Phys.,
                 2018, 148, 241709 (DOI: 10.1063/1.5019667).
                 Defaults to 'centred'.
-            use_charge (bool): If True, includes an additional element in the
-                vector descriptor for the charge state of the complex.
-                Defaults to False.
-            use_spin (bool): If True, includes an additional element in the
-                vector descriptor for the spin state of the complex.
-                Defaults to False.
         """
 
-        super().__init__(r_min, r_max, use_charge, use_spin)
+        super().__init__(r_min, r_max)
 
         self.n_g2 = n_g2
         self.n_g4 = n_g4
@@ -157,17 +149,14 @@ class WACSF(_VectorDescriptor):
             g4 = self.g4_transformer.transform(zj, zk, rij, rik, rjk, ajik)
             wacsf = np.append(wacsf, g4)
 
-        if self.use_spin:
-            wacsf = np.append(system.info['S'], wacsf)
-
-        if self.use_charge:
-            wacsf = np.append(system.info['q'], wacsf)
-
         return wacsf
 
-    def get_len(self) -> int:
+    @property
+    def size(
+        self
+    ) -> int:
         
-        return 1 + self.n_g2 + self.n_g4 + self.use_charge + self.use_spin
+        return 1 + self.n_g2 + self.n_g4
 
 class SymmetryFunctionTransformer(ABC):
     """

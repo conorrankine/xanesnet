@@ -22,12 +22,13 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 import numpy as np
 from ase import Atoms
 from abc import ABC, abstractmethod
+from ..templates import BaseTransformer
 
 ###############################################################################
 ################################## CLASSES ####################################
 ###############################################################################
 
-class _Descriptor(ABC):
+class Descriptor(BaseTransformer, ABC):
     """
     An abstract base class for a descriptor, i.e. a featuriser that transforms
     a set of atoms into a set of features.
@@ -56,8 +57,9 @@ class _Descriptor(ABC):
         
         pass 
 
+    @property
     @abstractmethod
-    def get_len(
+    def size(
         self
     ) -> int:
         """
@@ -67,7 +69,7 @@ class _Descriptor(ABC):
 
         pass
 
-class _VectorDescriptor(_Descriptor, ABC):
+class VectorDescriptor(Descriptor, ABC):
     """
     An abstract base class for a vector descriptor, i.e. a featuriser that
     transforms a set of atoms into a one-dimensional vector of features.
