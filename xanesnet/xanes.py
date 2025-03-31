@@ -22,7 +22,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 import numpy as np
 from pathlib import Path
 from typing import Union, TextIO
-from .dataset import BaseTransformer
+from .templates import BaseTransformer
 
 ###############################################################################
 ################################## CLASSES ####################################

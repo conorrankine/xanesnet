@@ -24,61 +24,8 @@ import numpy as np
 from tqdm import tqdm
 from ase import io
 from pathlib import Path
-from typing import Optional, Callable, Any
-from abc import ABC, abstractmethod
-
-###############################################################################
-################################## CLASSES ####################################
-###############################################################################
-
-class BaseTransformer(ABC):
-    """
-    An abstract base class for transformers used in, e.g., `load_dataset_from_
-    data_src()` to transform input objects into (1D) np.ndarrays.
-
-
-    This class defines a template for compatible transformers; subclasses are
-    expected to implement the `.transform()` method to carry out the
-    object -> (1D) np.ndarray transformation (as the exact transformation will
-    be object- and implementation-specific) and the `.size` property to provide
-    advance access to the number of elements in the (1D) np.ndarray
-    representation returned by the `.transform()` method.
-    """
-
-    def __init__(self):
-        
-        pass
-
-    @abstractmethod
-    def transform(
-        self,
-        obj: Any
-    ) -> np.ndarray:
-        """
-        Transforms an input object into a (1D) np.ndarray representation; the
-        exact transformation will be object- and implementation-specific. 
-
-        Args:
-            obj (Any): Object to transform.
-
-        Returns:
-            np.ndarray: (1D) np.ndarray representation.
-        """
-        
-        pass 
-
-    @property
-    @abstractmethod
-    def size(
-        self
-    ) -> int:
-        """
-        Returns:
-            int: Number of elements in the (1D) np.ndarray representation
-                returned by the `.transform()` method.
-        """
-
-        pass
+from typing import Optional, Callable
+from .templates import BaseTransformer
 
 ###############################################################################
 ################################## FUNCTIONS ##################################

@@ -22,7 +22,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 import numpy as np
 from ase import Atoms
 from abc import ABC, abstractmethod
-from ..dataset import BaseTransformer
+from ..templates import BaseTransformer
 
 ###############################################################################
 ################################## CLASSES ####################################
