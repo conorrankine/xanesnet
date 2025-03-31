@@ -22,6 +22,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 import numpy as np
 from pathlib import Path
 from typing import Union, TextIO
+from .dataset import BaseTransformer
 
 ###############################################################################
 ################################## CLASSES ####################################
@@ -291,7 +292,7 @@ def _calc_arctangent_conv_width(
   
     return g
 
-class XANESSpectrumTransformer():
+class XANESSpectrumTransformer(BaseTransformer):
     """
     A class for carrying out sequential preprocessing transforms, e.g.,
     shifting, slicing, scaling, interpolating, and convolution, on XANES

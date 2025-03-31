@@ -22,12 +22,13 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 import numpy as np
 from ase import Atoms
 from abc import ABC, abstractmethod
+from ..dataset import BaseTransformer
 
 ###############################################################################
 ################################## CLASSES ####################################
 ###############################################################################
 
-class Descriptor(ABC):
+class Descriptor(BaseTransformer, ABC):
     """
     An abstract base class for a descriptor, i.e. a featuriser that transforms
     a set of atoms into a set of features.
