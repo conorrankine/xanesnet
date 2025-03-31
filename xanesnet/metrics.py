@@ -19,6 +19,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 ############################### LIBRARY IMPORTS ###############################
 ###############################################################################
 
+from typing import Callable
 from sklearn.metrics import (
     mean_squared_error,
     mean_absolute_error
@@ -30,7 +31,7 @@ from sklearn.metrics import (
 
 def get_metric(
     metric_type: str
-) -> callable:
+) -> Callable:
     """
     Returns a metric/"scoring" function of the specified type; a metric
     function has the form f(`y_true`, `y_predicted`, *) -> `loss`.

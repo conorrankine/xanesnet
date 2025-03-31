@@ -21,6 +21,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import pickle
 from pathlib import Path
+from typing import Callable
 from . import utils
 from time import time
 from tqdm import tqdm
@@ -258,7 +259,7 @@ def _cross_validate(
     x: ndarray,
     y: ndarray,
     cv: BaseCrossValidator,
-    metric: callable
+    metric: Callable
 ) -> dict:
     """
     #TODO: complete docstring!
@@ -268,7 +269,7 @@ def _cross_validate(
         x (ndarray): _description_
         y (ndarray): _description_
         cv (BaseCrossValidator): _description_
-        metric (callable): _description_
+        metric (Callable): _description_
 
     Returns:
         dict: _description_
