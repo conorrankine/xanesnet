@@ -239,59 +239,6 @@ class XANES():
     def spectrum(self) -> tuple:
         return (self._e, self._m)
 
-def _lorentzian(x: np.ndarray, x0: float, width: float):
-    # returns the `y` values for a Lorentzian function defined over `x` with a
-    # centre `x0` and a width `width`
-    
-    return width * (0.5 / ((x - x0)**2 + (0.5 * width)**2))
-
-def _calc_seah_dench_conv_width(
-    e_rel: np.ndarray,
-    width: float = 2.0,
-    ef: float = -5.0,
-    a: float = 1.0,
-    width_max: float = 15.0
-) -> np.ndarray:
-    # returns the widths for an energy-dependent Lorentzian under the
-    # Seah-Dench convolution model; evaluated over `e_rel` (the energy relative
-    # to the X-ray absorption edge `e0` in eV) where `width` is the initial
-    # state width in eV, `width_max` is the final state width in eV, `ef` is
-    # the Fermi energy in eV, and `a` is the Seah-Dench (pre-)factor 
-
-    e_ = e_rel - ef
-
-    g = width + (
-        (a * width_max * e_) / (width_max + (a * e_))
-    )
-
-    return g
-
-def _calc_arctangent_conv_width(
-    e_rel: np.ndarray,
-    width: float = 2.0,
-    ef: float = -5.0,
-    ec: float = 30.0,
-    el: float = 30.0,
-    width_max: float = 15.0
-) -> np.ndarray:
-    # returns the widths for an energy-dependent Lorentzian under the
-    # arctangent convolution model; evaluated over `e_rel` (the energy relative
-    # to the X-ray absorption edge `e0` in eV) where `width` is the initial
-    # state width in eV, `width_max` is the final state width in eV, `ef` is
-    # the Fermi energy in eV, `ec` is the centre of the arctangent in eV
-    # relative to `e0`, and `el` is the width of the arctangent in eV    
-   
-    e_ = (e_rel - ef) / ec
-        
-    with np.errstate(divide = 'ignore'):
-        arctan = (np.pi / 3.0) * (width_max / el) * (e_ - (1.0 / e_**2))
-
-    g = width + (
-        width_max * ((1.0 / 2.0) + (1.0 / np.pi) * np.arctan(arctan))
-    )
-  
-    return g
-
 class XANESSpectrumTransformer(BaseTransformer):
     """
     A class for carrying out sequential preprocessing transforms, e.g.,
@@ -401,6 +348,122 @@ class XANESSpectrumTransformer(BaseTransformer):
 ###############################################################################
 ################################## FUNCTIONS ##################################
 ###############################################################################
+
+def _lorentzian(
+    x: np.ndarray,
+    x0: float,
+    width: float
+) -> np.ndarray:
+    """
+    Returns a Lorentzian function defined over `x`.
+
+    Args:
+        x (np.ndarray): Array of `x` values at which the Lorentzian function
+            is evaluated.
+        x0 (float): Peak, or center, of the Lorentzian function.
+        width (float): Width (full-width-at-half-maximum; FWHM) of the
+            Lorentzian function.
+
+    Returns:
+        np.ndarray: Array of `y` values corresponding to the evaluation of
+            the Lorentzian function at each value of `x`.
+    """
+    
+    return width * (0.5 / ((x - x0)**2 + (0.5 * width)**2))
+
+def _gaussian(
+    x: np.ndarray,
+    x0: float,
+    sigma: float
+) -> np.ndarray:
+    """
+    Returns a Gaussian function defined over `x`.
+
+    Args:
+        x (np.ndarray): Array of `x` values at which the Gaussian function
+            is evaluated.
+        x0 (float): Peak, or center, of the Gaussian function.
+        sigma (float): Width (standard deviation; sigma) of the Gaussian
+            function.
+
+    Returns:
+        np.ndarray: Array of `y` values corresponding to the evaluation of
+            the Gaussian function at each value of `x`.
+    """
+
+    return np.exp(-0.5 * ((x - x0) / sigma)**2)
+
+def _calc_seah_dench_conv_width(
+    e_rel: np.ndarray,
+    width: float = 2.0,
+    width_max: float = 15.0,
+    ef: float = -5.0,
+    a: float = 1.0
+) -> np.ndarray:
+    """
+    Calculates the widths of the energy-dependent Lorentzians under the Seah-
+    Dench convolution model.
+
+    Args:
+        e_rel (np.ndarray): Energies (in eV) relative to the X-ray absorption
+            edge.
+        width (float, optional): Initial Lorentzian width (in eV). Defaults to
+            2.0 (eV).
+        width_max (float, optional): Final/maximum Lorentzian width (in eV).
+            Defaults to 15.0 (eV).
+        ef (float, optional): Fermi energy (in eV) relative to the X-ray
+            absorption edge. Defaults to -5.0 (eV).
+        a (float, optional): Seah-Dench (pre-)factor. Defaults to 1.0.
+        
+    Returns:
+        np.ndarray: Array of values corresponding to the widths of the energy-
+            dependent Lorentzians under the Seah-Dench convolution model.
+    """
+
+    e_ = (e_rel - ef)
+
+    return width + (
+        (a * width_max * e_) / (width_max + (a * e_))
+    )
+
+def _calc_arctangent_conv_width(
+    e_rel: np.ndarray,
+    width: float = 2.0,
+    width_max: float = 15.0,
+    ef: float = -5.0,
+    ec: float = 30.0,
+    el: float = 30.0
+) -> np.ndarray:
+    """
+    Calculates the widths of the energy-dependent Lorentzians under the
+    arctangent convolution model.
+
+    Args:
+        e_rel (np.ndarray): Energies (in eV) relative to the X-ray absorption
+            edge.
+        width (float, optional): Initial Lorentzian width (in eV). Defaults to
+            2.0 (eV).
+        width_max (float, optional): Final/maximum Lorentzian width (in eV).
+            Defaults to 15.0 (eV).
+        ef (float, optional): Fermi energy (in eV) relative to the X-ray
+            absorption edge. Defaults to -5.0 (eV).
+        ec (float, optional): Center of the arctangent smoothing function (in
+            eV) relative to the X-ray absorption edge. Defaults to 30.0 (eV).
+        el (float, optional): Width of the arctangent smoothing function (in
+            eV). Defaults to 30.0 (eV).
+
+    Returns:
+        np.ndarray: Array of values corresponding to the widths of the energy-
+            dependent Lorentzians under the arctangent convolution model.
+    """
+   
+    e_ = (e_rel - ef) / ec
+    with np.errstate(divide = 'ignore'):
+        arctan = (np.pi / 3.0) * (width_max / el) * (e_ - (1.0 / e_**2))
+
+    return width + (
+        width_max * ((1.0 / 2.0) + (1.0 / np.pi) * np.arctan(arctan))
+    )
 
 def get_spectrum_transformer(
     transformer_type: str,
