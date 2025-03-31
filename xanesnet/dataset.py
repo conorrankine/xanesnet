@@ -40,37 +40,33 @@ def load_dataset_from_data_src(
     verbose: bool = False
 ) -> tuple[np.ndarray, Optional[np.ndarray]]:
     """
-    Loads input (X) and target (Y) data from the specified source paths and
-    applies preprocessing transforms if i) the specified source paths are
-    directories and ii) X ()`x_transformer`) and Y (`y_transformer`)
-    transformer objects that implement a `.transform()` method are passed; if
-    the specified source paths point to .npz files, then these are unpacked and
-    returned as-is without applying any preprocessing transforms.
-
-    # TODO: extend documentation
+    Loads input (X) and target (Y) data from the specified source paths: if
+    a specified source path is a .npz file, data are unpacked and returned
+    as-is; if a specified source path is a directory, files are loaded and
+    transformed into np.ndarrays by the `.transform()` method of the
+    `x_transformer` or `y_transformer` object (as appropriate; i.e. for
+    `x_src` and `y_src`, respectively).
 
     Args:
         x_src (Path): Source path for input (X) data.
         y_src (Path, optional): Source path for target (Y) data. Defaults to
             None.
-        x_transformer (Descriptor, optional): Transformer for the input (X)
-            data; expects an instance of the `Descriptor` class that has the
-            `.transform()` method implemented. Defaults to None.
-        y_transformer (XANESSpectrumTransformer, optional): Transformer for the
-            target (Y) data; expects an instance of the
-            `XANESSpectrumTransformer` class that has the `.transform()` method
-            implemented. Defaults to None.
+        x_transformer (Descriptor, optional): Transformer object for the input
+            (X) data implementing the `.transform()` method. Defaults to None.
+        y_transformer (XANESSpectrumTransformer, optional): Transformer object
+            for the target (Y) data implementing the `.transform()` method.
+            Defaults to None.
         verbose (bool, optional): If `True`, and the data source(s) is/are
             a directory/directories, the data source(s) are printed and the
             data are loaded with a progress bar. Defaults to `False`.
 
     Raises:
         ValueError: If a different number of records are loaded from `x_src`
-            and `y_src` (i.e. len(`x`) != len(`y`)) when `y_src` is not `None`.
+            and `y_src` (i.e. len(`x`) != len(`y`)) when `y_src` is not None.
 
     Returns:
         tuple[np.ndarray, Optional[np.ndarray]]: Tuple of input (X) and
-            (optionally) output (Y) data.
+            (optionally) output (Y) data (if `y_src` is not None).
     """
     
     x = _load_from_data_src(
@@ -102,30 +98,31 @@ def _load_from_data_src(
     verbose: bool = False
 ) -> np.ndarray:
     """
-    Loads data from the specified source path and applies preprocessing
-    transforms if i) the specified source path is a directory, and ii) a data
-    transformer object that implements a `.transform()` method is passed; if
-    the specified source path points to an .npz file, then this is unpacked
-    and returned as-is without applying any preprocessing transforms.
+    Loads data from the specified source path: if `data_src` is a .npz file,
+    data are unpacked and returned as-is; if `data_src` is a directory, files
+    are loaded by the `directory_data_loader()` function and transformed into
+    np.ndarrays by the `.transform()` method of the `data_transformer` object.
 
     Args:
         data_src (Path): Source path for data.
         data_transformer (Union[Descriptor, XANESSpectrumTransformer]):
-            Transformer for the data; expects an instance of a class with the
-            `.transform()` method implemented.
+            Transformer object for the data implementing the `.transform()`
+            method. Defaults to None.
         directory_data_loader (Callable): Function for loading the data from
             a directory; the function is expected to take both the data source
             (`data_src`) and transformer (`data_transformer`) as arguments.
-        verbose (bool, optional): If `True`, and the data source(s) is/are
-            a directory/directories, the data source(s) are printed and the
-            data are loaded with a progress bar. Defaults to `False`.
+        verbose (bool, optional): If `True`, and the data source is a
+            directory, the data source is printed and the data are loaded with
+            a progress bar. Defaults to `False`.
 
     Raises:
         FileNotFoundError: If `data_src` does not exist.
         ValueError: If `data_src` is not a valid/supported path.
 
     Returns:
-        np.ndarray: Loaded data.
+        np.ndarray: Loaded data; the contents of the .npz file if `data_src`
+            is a file, else a 2D array where each row corresponds to the data
+            from each file in the directory if `data_src` is a directory.
     """
     
     if data_src.is_file():
@@ -153,24 +150,22 @@ def load_x_data_from_dir(
     verbose: bool = False
 ) -> np.ndarray:
     """
-    Loads input (X) data from a directory of .xyz files; .xyz files are loaded
-    as ase.Atoms objects by the `ase.io.read()` function and transformed into
-    molecular descriptors by a transformer (`x_transformer`) that is expected
-    to be an instance of a `Descriptor` class; a 2D Numpy (`np.ndarray`) array
-    is returned where each row corresponds to the transformed 1D Numpy array
-    representation of each file in the directory.
-
+    Loads input (X) data from a directory of Cartesian coordinate (.xyz) files;
+    files are loaded as `Atoms` objects by the `ase.io.read()` function and
+    transformed into np.ndarrays representing their molecular feature vectors
+    by the `.transform()` method of the `x_transformer` object (expected to be
+    an instance of the `Descriptor` class).
+     
     Args:
         x_dir (Path): Source path for the input (X) data directory.
-        x_transformer (Descriptor, optional): Transformer for the input (X)
-            data; expects an instance of the `Descriptor` class. Defaults to
-            None.
-        verbose (bool, optional): If `True`, and the data source(s) is/are
-            a directory/directories, the data source(s) are printed and the
+        x_transformer (Descriptor, optional): Transformer object for the input
+            (X) data implementing the `.transform()` method. Defaults to None.
+        verbose (bool, optional): If `True`, the data source is printed and the
             data are loaded with a progress bar. Defaults to `False`.
 
     Returns:
-        np.ndarray: Loaded input (X) data.
+        np.ndarray: Loaded input (X) data; 2D array where each row corresponds
+            to the data from each file in the directory.
     """
 
     x = _load_data_from_dir(
@@ -188,25 +183,23 @@ def load_y_data_from_dir(
     verbose: bool = False
 ) -> np.ndarray:
     """
-    Loads target (Y) data from a directory of XANES spectrum files; XANES
-    spectrum files are loaded as xanesnet.XANES objects by the 
-    `xanesnet.xanes.read()` function and transformed (e.g. shifted, scaled,
-    etc.) by a transformer (`y_transformer`) that is expected to be an
-    instance of the `XANESSpectrumTransformer` class; a 2D Numpy (`np.ndarray`)
-    array is returned where each row corresponds to the transformed 1D Numpy
-    array representation of each file in the directory.
-
+    Loads target (Y) data from a directory of XANES spectrum files; files are
+    are loaded as `XANES` objects by the `xanesnet.xanes.read()` function and
+    transformed (with, e.g., shifting, scaling, convoluting, etc.) into
+    np.ndarrays by the `.transform()` method of the `y_transformer` object
+    (expected to be an instance of the `XANESSpectrumTransformer` class).
+    
     Args:
         y_dir (Path): Source path for the target (Y) data directory.
-        y_transformer (XANESSpectrumTransformer, optional): Transformer for the
-        target (Y) data; expects an instance of the `XANESSpectrumTransformer`
-        class. Defaults to None.
-        verbose (bool, optional): If `True`, and the data source(s) is/are
-            a directory/directories, the data source(s) are printed and the
+        y_transformer (XANESSpectrumTransformer, optional): Transformer object
+            for the target (Y) data implementing the `.transform()` method.
+            Defaults to None.
+        verbose (bool, optional): If `True`, the data source is printed and the
             data are loaded with a progress bar. Defaults to `False`.
 
     Returns:
-        np.ndarray: Loaded target (Y) data.
+        np.ndarray: Loaded target (Y) data; 2D array where each row corresponds
+            to the data from each file in the directory.
     """
 
     y = _load_data_from_dir(
@@ -225,26 +218,28 @@ def _load_data_from_dir(
     verbose: bool = False
 ) -> np.ndarray:
     """
-    Loads data from a directory of files; files are loaded as appropriate
-    objects by the `file_data_loader` function and transformed by a
-    transformer `data_transformer` that implements the `.transform()` method
-    into 1D Numpy (`np.ndarray) arrays; a 2D Numpy array is returned where
-    each row corresponds to the transformed 1D Numpy array representation of
-    each file in the directory. 
-
+    Loads data from a directory of files; files are loaded as objects by the
+    `file_data_loader` function and transformed into np.ndarrays by the
+    `.transform()` method of the `data_transformer` object.  
+    
     Args:
         data_dir (Path): Source path for the data directory.
         data_transformer (Union[Descriptor, XANESSpectrumTransformer]):
-            Transformer for the data; expects that  `.transform()` method is
-            implemented.
+            Transformer object implementing the  `.transform()` method.
         file_data_loader (Callable): Function for loading files as objects that
-            `data_transformer` can work with via the `.transform()` method.
-        verbose (bool, optional): If `True`, and the data source(s) is/are
-            a directory/directories, the data source(s) are printed and the
+            `data_transformer` can work with using the `.transform()` method.
+        verbose (bool, optional): If `True`, the data source is printed and the
             data are loaded with a progress bar. Defaults to `False`.
 
+    Raises:
+        FileNotFoundError: If `data_dir` is an empty directory.
+        ValueError: If the `.size` property of `data_transformer` is 0; i.e.
+            if applying the `.transform()` method would result in zero-length
+            feature/target vectors.
+
     Returns:
-        np.ndarray: Loaded data.
+        np.ndarray: Loaded data; 2D array where each row corresponds to the
+            data from each file in the directory.
     """
     
     if data_transformer is None:
@@ -262,7 +257,7 @@ def _load_data_from_dir(
         if n_features == 0:
             raise ValueError(
                 'check data transformer configuration; cannot create '
-                'zero-length feature vectors'
+                'zero-length feature/target vectors'
             )
         data = np.full((n_samples, n_features), np.nan)
         if verbose:
