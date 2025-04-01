@@ -88,22 +88,23 @@ class XANES():
         flatten: bool = True
     ):
         """
-        Scales the XANES spectrum using the 'edge-step' approach: fitting a
-        2nd-order (quadratic) polynomial, `fit`, to the post-edge (where `e`
-        >= `e0`; eV), determining the 'edge-step', `fit(e0)`, and scaling
-        `m` by dividing through by this value. `m` can also be flattened;
-        in this case, the post-edge is levelled off to ca. 1.0 by adding
-        (1.0 - `fit(e0)`) to `m` where `e` >= `e0`.
+        Scales the XANES spectrum using the 'edge-step' approach, i.e., by
+        fitting a 2nd-order (quadratic) polynomial to (part of) the post-edge
+        (where `energy` >= `e0`), determining the 'edge step', `fit(e0)`, and
+        scaling the absorption intensity by dividing through by this value.
+         
+        Optionally, the XANES spectrum can also be flattened post-scaling; the
+        post-edge can be levelled off to ca. 1.0 by adding (1.0 - `fit(e0)`)
+        to the absorption intensity where `energy` >= `e0`.
 
         Args:
-            fit_limits (tuple, optional): lower and upper limits (in eV
-                relative to the X-ray absorption edge; `e0`) defining the `e`
-                window over which the 2nd-order (quadratic) polynomial, `fit`,
-                is determined.
+            fit_limits (tuple, optional): Limits (lower and upper; in eV
+                relative to the X-ray absorption edge) that bound the energy
+                window over which the 2nd-order (quadratic) polynomial is fit.
                 Defaults to (100.0, 400.0).
-            flatten (bool, optional): toggles flattening of the post-edge by
-                adding (1.0 - `fit(e0)`) to `m` where `e` >= `e0`.
-                Defaults to True.
+            flatten (bool, optional): Toggles flattening of the post-edge by
+                adding (1.0 - `fit(e0)`) to the absorption intensity where
+                `energy` >= `e0`. Defaults to True.
         """
 
         e_rel = self._e - self._e0
