@@ -203,20 +203,36 @@ class XANES():
         return self
 
     @property
-    def e(self) -> float:
+    def e(
+        self
+    ) -> np.ndarray:
+        """
+        Returns:
+            np.ndarray: Array of energy values (in eV) defining the XANES
+                spectrum.
+        """
         return self._e
 
     @property
-    def m(self) -> float:
+    def m(
+        self
+    ) -> np.ndarray:
+        """
+        Returns:
+            np.ndarray: Array of absorption intensity values defining the
+                XANES spectrum.
+        """
         return self._m
 
     @property
-    def e0(self) -> float:
+    def e0(
+        self
+    ) -> float:
+        """
+        Returns:
+            float: X-ray absorption edge (in eV).
+        """
         return self._e0
-
-    @property
-    def spectrum(self) -> tuple:
-        return (self._e, self._m)
 
 class XANESSpectrumTransformer(BaseTransformer):
     """
