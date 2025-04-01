@@ -132,22 +132,23 @@ class XANES():
         conv_params: dict = None
     ):
         """
-        Convolves the XANES spectrum with either a fixed-width (`width`; eV)
-        Lorentzian function (if `conv_type` == 'fixed_width') or energy-
-        dependent variable-width Lorentzian function where the width is derived
-        from either the Seah-Dench (if `conv_type` == 'seah_dench_model') or
-        arctangent (if `conv_type` == 'arctangent_model') convolution models.
-        `m` is projected from `e` onto an auxilliary energy scale `e_aux` via
-        linear interpolation before convolution; the spacing of the energy
-        gridpoints in `e_aux` is equal to the smallest spacing of the energy
-        gridpoints in `e`, and `e_aux` is padded at either end. 
+        Convolves the XANES spectrum with a fixed-width or energy-dependent
+        (variable-width) Lorentzian function where the widths are
+        derived from a convolution model (e.g. Seah-Dench; arctangent; etc.).
+
+        XANES spectra are projected onto an auxilliary energy grid via linear
+        interpolation pre-convolution; the spacing of the energy gridpoints
+        on the auxilliary energy grid are equal to the smallest spacing of the
+        energy gridpoints on the original energy grid.
 
         Args:
-            conv_type (str, optional): type of convolution; options are
-                'fixed_width', 'seah_dench_model', and 'arctangent_model'.
-                Defaults to 'fixed_width'.
-            conv_params (dict, optional): Convolution parameters passed to the
-                convolution width calculation function. Defaults to None.
+            conv_type (str, optional): Convolution type; options are
+                'fixed_width', 'seah_dench', and 'arctangent'. Defaults to
+                'fixed_width'.
+            conv_params (dict, optional): Convolution parameters passed to
+                the convolution width calculation function. If not set, `width`
+                defaults to 2.0 eV and `ef` (the Fermi energy relative to the
+                X-ray absorption edge) defaults to -1.0 eV. Defaults to None.
 
         Raises:
             ValueError: If `conv_type` is not one of 'fixed_width',
