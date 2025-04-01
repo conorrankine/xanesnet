@@ -73,11 +73,11 @@ class XANES():
 
     def estimate_e0(self) -> float:
         """
-        Estimates the X-ray absorption edge (`e0`; eV) energy as the energy
-        `e` where the derivative of `m` is largest.
+        Estimates the energy of the X-ray absorption edge (`e0`; eV) as the
+        energy at which the derivative of the absorption intensity is largest.
 
         Returns:
-            float: the X-ray absorption edge (`e0`; eV) energy.
+            float: Estimated energy of the X-ray absorption edge (in eV).
         """
 
         return self._e[np.argmax(np.gradient(self._m))]
