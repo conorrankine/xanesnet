@@ -20,8 +20,9 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 ###############################################################################
 
 import numpy as np
+import copy
 from pathlib import Path
-from typing import Union, TextIO
+from typing import Union, TextIO, Self
 from .templates import BaseTransformer
 
 ###############################################################################
@@ -83,8 +84,9 @@ class XANES():
     def scale(
         self,
         fit_limits: tuple = (100.0, 400.0),
-        flatten: bool = True
-    ):
+        flatten: bool = True,
+        inplace: bool = True
+    ) -> Self:
         """
         Scales the XANES spectrum using the 'edge-step' approach, i.e., by
         fitting a 2nd-order (quadratic) polynomial to (part of) the post-edge
@@ -106,30 +108,39 @@ class XANES():
                 adding (1.0 - `fit(absorption_energy)`) to the absorption
                 intensity (`absorption`) where `energy` >= `absorption_energy`.
                 Defaults to True.
+            inplace (bool, optional): If `True`, the transformation is carried
+                out in-place; if `False`, the transformation is carried out on
+                a copy and the copy is returned. Defaults to `True`.
+
+        Returns:
+            Self: Self if `inplace` is `True`, else a new `XANES` instance with
+                the transformation applied.
         """
 
-        min_limit, max_limit = fit_limits
+        result = self if inplace else copy.deepcopy(self)
+
+        min_, max_ = fit_limits
 
         fit_window = (
-            (self._energy_rel >= min_limit) & (self._energy_rel <= max_limit)
+            (result._energy_rel >= min_) & (result._energy_rel <= max_)
         )
 
         fit = np.polynomial.Polynomial.fit(
-            self._energy[fit_window],
-            self._absorption[fit_window],
+            result._energy[fit_window],
+            result._absorption[fit_window],
             deg = 2
         )
 
-        self._absorption /= fit(self._absorption_edge)
+        result._absorption /= fit(result._absorption_edge)
 
         if flatten:
-            postedge_filter = self._energy >= self._absorption_edge
-            self._absorption[postedge_filter] += (
+            postedge_filter = result._energy >= result._absorption_edge
+            result._absorption[postedge_filter] += (
                 1.0 - (fit(self._energy)[postedge_filter] / 
                     fit(self._absorption_edge))
             )
 
-        return self
+        return result
 
     def convolve(
         self,
