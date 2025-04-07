@@ -19,7 +19,11 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 ############################### LIBRARY IMPORTS ###############################
 ###############################################################################
 
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+    MATPLOTLIB_AVAILABLE = True
+except ImportError:
+    MATPLOTLIB_AVAILABLE = False
 import numpy as np
 import copy
 from pathlib import Path
@@ -374,6 +378,12 @@ class XANES():
         Returns:
             plt.Axes: Matplotlib axes containing the XANES spectrum plot.
         """
+
+        if not MATPLOTLIB_AVAILABLE:
+            raise ImportError(
+                'matplotlib is required for plotting and is not installed; '
+                'try `pip install matplotlib`'
+            )
         
         if ax is None:
             fig, ax = plt.subplots(figsize = figsize)
