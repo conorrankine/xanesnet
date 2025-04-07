@@ -550,7 +550,7 @@ class XANESSpectrumTransformer(BaseTransformer):
             self._energy_min, self._energy_max, self._n_bins
         )
         
-        return spectrum
+        return spectrum.absorption
     
     @property
     def energy_grid(
