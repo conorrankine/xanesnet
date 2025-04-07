@@ -93,8 +93,7 @@ class XANES():
         inplace: bool = True
     ) -> Self:
         """
-        Shifts the XANES spectrum in energy by `shift` eV, updating the
-        `energy` and `absorption_edge` properties.
+        Shifts the XANES spectrum in energy by `shift` eV.
 
         Args:
             shift (float, optional): Shift in energy (in eV). Defaults to 0.0.
@@ -120,11 +119,11 @@ class XANES():
         inplace: bool = True
     ) -> Self:
         """
-        Scales the XANES spectrum in (absorption) intensity by a factor of
-        `scale`, updating the `absorption` property.
+        Scales the XANES spectrum absorption intensity by a factor of `scale`.
 
         Args:
-            scale (float, optional): Scale. Defaults to 1.0.
+            scale (float, optional): Scale factor for the absorption intensity
+                (in arbitrary units). Defaults to 1.0.
             inplace (bool, optional): If `True`, the transformation is carried
                 out in-place; if `False`, the transformation is carried out on
                 a copy and the copy is returned. Defaults to `True`.
@@ -467,6 +466,8 @@ class XANESSpectrumTransformer(BaseTransformer):
         energy_min: float = -30.0,
         energy_max: float = 120.0,
         n_bins: int = 150,
+        shift: float = 0.0,
+        scale: float = 1.0,
         normalise: bool = True,
         conv: bool = True,
         conv_params: dict = None
@@ -481,6 +482,9 @@ class XANESSpectrumTransformer(BaseTransformer):
                 Defaults to 120.0.
             n_bins (int, optional): Number of discrete energy bins for the
                 spectral window/slice. Defaults to 150.
+            shift (float, optional): Shift in energy (in eV). Defaults to 0.0.
+            scale (float, optional): Scale factor for the absorption intensity
+                (in arbitrary units). Defaults to 1.0.
             normalise (bool, optional): Toggles spectrum normalisation using
                 the 'edge-step' approach. Defaults to `True`.
             conv (str, optional): Toggles spectrum convolution using (a) fixed-
@@ -516,10 +520,13 @@ class XANESSpectrumTransformer(BaseTransformer):
             self._energy_min, self._energy_max, self._n_bins
         )
 
-        self.normalise = normalise
-
         self.conv = conv
         self.conv_params = conv_params if conv else None
+
+        self.normalise = normalise
+
+        self.shift = shift
+        self.scale = scale
 
     def transform(
         self,
@@ -545,6 +552,9 @@ class XANESSpectrumTransformer(BaseTransformer):
 
         if self.normalise:
             spectrum.normalise()
+
+        spectrum.scale(self.scale)
+        spectrum.shift(self.shift)
 
         spectrum.interp(
             self._energy_min, self._energy_max, self._n_bins

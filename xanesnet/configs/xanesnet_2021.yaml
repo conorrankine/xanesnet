@@ -20,6 +20,8 @@ spectrum_transformer:
     energy_min: -15.0
     energy_max: 60.0
     n_bins: 226
+    shift: 0.0
+    scale: 1.0
     normalise: True
     conv: True
     conv_params:
