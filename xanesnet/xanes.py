@@ -19,9 +19,16 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 ############################### LIBRARY IMPORTS ###############################
 ###############################################################################
 
+try:
+    import matplotlib.pyplot as plt
+    MATPLOTLIB_AVAILABLE = True
+except ImportError:
+    MATPLOTLIB_AVAILABLE = False
 import numpy as np
+import copy
 from pathlib import Path
 from typing import Union, TextIO
+from typing_extensions import Self
 from .templates import BaseTransformer
 
 ###############################################################################
@@ -32,265 +39,417 @@ class XANES():
 
     def __init__(
         self,
-        e: np.ndarray,
-        m: np.ndarray,
-        e0: float = None,
-        info: dict = None
+        energy: np.ndarray,
+        absorption: np.ndarray,
+        absorption_edge: float = None
     ):
         """
         Args:
-            e (np.ndarray; 1D): an array of energy (`e`; eV) values
-            m (np.ndarray; 1D): an array of intensity (`m`; arbitrary) values
-            e0 (float, optional): the X-ray absorption edge (`e0`; eV) energy.
-                If None, an attempt is made to determine `e0` from the maximum
-                derivative of `m` with `get_e0()`.
-                Defaults to None.
-            info (dict, optional): a dictionary of key/val pairs that can be
-                used to store extra information about the XANES spectrum as a
-                tag.
-                Defaults to None.
+            energy (np.ndarray): Array of energy values (in eV) defining the
+                XANES spectrum.
+            absorption (np.ndarray): Array of absorption intensity values
+                defining the XANES spectrum.
+            absorption_edge (float, optional): X-ray absorption edge energy
+                (in eV). If None, the X-ray absorption edge is estimated as
+                coincident with the maximum derivative of the absorption
+                intensity. Defaults to None.
 
         Raises:
-            ValueError: if the `e` and `m` arrays are not the same length.
+            ValueError: If `energy` and `absorption` are not the same length.
         """
         
-        if len(e) == len(m):
-            self._e = e
-            self._m = m
+        if len(energy) == len(absorption):
+            self._energy = energy
+            self._absorption = absorption
         else:
-            raise ValueError('the energy (`e`) and XANES spectral intensity '\
-                '(`m`) arrays are not the same length')
+            raise ValueError(
+                'the energy and absorption intensity arrays are not the same '
+                f'length ({len(energy)} vs. {len(absorption)})'
+            )
 
-        if e0 is not None:
-            self._e0 = e0
+        if absorption_edge is not None:
+            self._absorption_edge = absorption_edge
         else:
-            self._e0 = self.estimate_e0()
+            self._absorption_edge = self.estimate_absorption_edge()
 
-        if info is not None:
-            self.info = info
-        else:
-            self.info = {}
+        self._energy_rel = self._energy - self._absorption_edge
 
-    def estimate_e0(self) -> float:
+    def estimate_absorption_edge(
+        self
+    ) -> float:
         """
-        Estimates the X-ray absorption edge (`e0`; eV) energy as the energy
-        `e` where the derivative of `m` is largest.
+        Estimates the energy of the X-ray absorption edge (in eV) as the
+        energy at which the derivative of the absorption intensity is largest.
 
         Returns:
-            float: the X-ray absorption edge (`e0`; eV) energy.
+            float: Estimated energy of the X-ray absorption edge (in eV).
         """
 
-        return self._e[np.argmax(np.gradient(self._m))]
-
-    def scale(
+        return self._energy[np.argmax(np.gradient(self._absorption))]
+    
+    def shift(
         self,
-        fit_limits: tuple = (100.0, 400.0),
-        flatten: bool = True
-    ):
+        shift: float = 0.0,
+        inplace: bool = True
+    ) -> Self:
         """
-        Scales the XANES spectrum using the 'edge-step' approach: fitting a
-        2nd-order (quadratic) polynomial, `fit`, to the post-edge (where `e`
-        >= `e0`; eV), determining the 'edge-step', `fit(e0)`, and scaling
-        `m` by dividing through by this value. `m` can also be flattened;
-        in this case, the post-edge is levelled off to ca. 1.0 by adding
-        (1.0 - `fit(e0)`) to `m` where `e` >= `e0`.
+        Shifts the XANES spectrum in energy by `shift` eV.
 
         Args:
-            fit_limits (tuple, optional): lower and upper limits (in eV
-                relative to the X-ray absorption edge; `e0`) defining the `e`
-                window over which the 2nd-order (quadratic) polynomial, `fit`,
-                is determined.
-                Defaults to (100.0, 400.0).
-            flatten (bool, optional): toggles flattening of the post-edge by
-                adding (1.0 - `fit(e0)`) to `m` where `e` >= `e0`.
-                Defaults to True.
+            shift (float, optional): Shift in energy (in eV). Defaults to 0.0.
+            inplace (bool, optional): If `True`, the transformation is carried
+                out in-place; if `False`, the transformation is carried out on
+                a copy and the copy is returned. Defaults to `True`.
+
+        Returns:
+            Self: Self if `inplace` is `True`, else a new `XANES` instance with
+                the transformation applied.
+        """
+        
+        result = self if inplace else copy.deepcopy(self)
+
+        result._energy += shift
+        result._absorption_edge += shift
+
+        return result
+    
+    def scale(
+        self,
+        scale: float = 1.0,
+        inplace: bool = True
+    ) -> Self:
+        """
+        Scales the XANES spectrum absorption intensity by a factor of `scale`.
+
+        Args:
+            scale (float, optional): Scale factor for the absorption intensity
+                (in arbitrary units). Defaults to 1.0.
+            inplace (bool, optional): If `True`, the transformation is carried
+                out in-place; if `False`, the transformation is carried out on
+                a copy and the copy is returned. Defaults to `True`.
+
+        Raises:
+            ValueError: If `scale` <= 0.0.
+
+        Returns:
+            Self: Self if `inplace` is `True`, else a new `XANES` instance with
+                the transformation applied.
         """
 
-        e_rel = self._e - self._e0
-        e_rel_min, e_rel_max = fit_limits
+        if scale <= 0.0:
+            raise ValueError(
+                f'scaling factors should be > 0.0; got {scale} (<= 0.0)'
+            )
 
-        fit_window = (e_rel >= e_rel_min) & (e_rel <= e_rel_max)
+        result = self if inplace else copy.deepcopy(self)
+
+        result._absorption *= scale
+
+        return result
+    
+    def interp(
+        self,
+        energy_min: float,
+        energy_max: float,
+        n_bins: int,
+        inplace: bool = True
+    ) -> Self:
+        """
+        Resamples the XANES spectrum via linear interpolation between the
+        bounds `energy_min` and `energy_max` at `n_bins` points.
+
+        Args:
+            energy_min (float): Minimum energy bound (in eV) relative to the
+                X-ray absorption edge.
+            energy_max (float): Maximum energy bound (in eV) relative to the
+                X-ray absorption edge.
+            n_bins (int): Number of energy gridpoints to resample the XANES
+                spectrum over.
+            inplace (bool, optional): If `True`, the transformation is carried
+                out in-place; if `False`, the transformation is carried out on
+                a copy and the copy is returned. Defaults to `True`.
+
+        Raises:
+            ValueError: If `energy_min` >= `energy_max`.
+            ValueError: If `n_bins` <= 0.
+
+        Returns:
+            Self: Self if `inplace` is `True`, else a new `XANES` instance with
+                the transformation applied.
+        """
+
+        if energy_min >= energy_max:
+            raise ValueError(
+                f'the minimum energy bound ({energy_min} eV) can\'t be '
+                f'greater than the maximum energy bound ({energy_max} eV)'
+            )
+        
+        if n_bins <= 0:
+            raise ValueError(
+                f'the number of discrete energy bins ({n_bins}) can\'t be '
+                'fewer than 1'
+            )
+            
+        result = self if inplace else copy.deepcopy(self)
+
+        interp_energy_rel = np.linspace(
+            energy_min, energy_max, n_bins
+        )
+        interp_energy = interp_energy_rel + result._absorption_edge
+        interp_absorption = np.interp(
+            interp_energy, result._energy, result._absorption
+        )
+
+        result._energy = interp_energy
+        result._energy_rel = interp_energy_rel
+        result._absorption = interp_absorption
+
+        return result
+
+    def normalise(
+        self,
+        fit_limits: tuple = (100.0, 400.0),
+        flatten: bool = True,
+        inplace: bool = True
+    ) -> Self:
+        """
+        Normalises the XANES spectrum using the 'edge-step' approach, i.e., by
+        fitting a 2nd-order (quadratic) polynomial to (part of) the post-edge
+        (where `energy` >= `absorption_energy`), determining the 'edge step',
+        `fit(absorption_energy)`, and normalising the absorption intensity
+        (`absorption`) by dividing through by this value.
+         
+        Optionally, the XANES spectrum can be flattened post-normalisation;
+        the post-edge can be levelled off to ca. 1.0 by adding (1.0 - 
+        `fit(absorption_energy)`) to the absorption intensity (`absorption`)
+        where `energy` >= `absorption_energy`.
+
+        Args:
+            fit_limits (tuple, optional): Limits (lower and upper; in eV
+                relative to the X-ray absorption edge) that bound the energy
+                window over which the 2nd-order (quadratic) polynomial is fit.
+                Defaults to (100.0, 400.0).
+            flatten (bool, optional): Toggles flattening of the post-edge by
+                adding (1.0 - `fit(absorption_energy)`) to the absorption
+                intensity (`absorption`) where `energy` >= `absorption_energy`.
+                Defaults to True.
+            inplace (bool, optional): If `True`, the transformation is carried
+                out in-place; if `False`, the transformation is carried out on
+                a copy and the copy is returned. Defaults to `True`.
+
+        Returns:
+            Self: Self if `inplace` is `True`, else a new `XANES` instance with
+                the transformation applied.
+        """
+
+        result = self if inplace else copy.deepcopy(self)
+
+        min_, max_ = fit_limits
+
+        fit_window = (
+            (result._energy_rel >= min_) & (result._energy_rel <= max_)
+        )
 
         fit = np.polynomial.Polynomial.fit(
-            self._e[fit_window],
-            self._m[fit_window],
+            result._energy[fit_window],
+            result._absorption[fit_window],
             deg = 2
         )
 
-        self._m /= fit(self._e0)
+        result._absorption /= fit(result._absorption_edge)
 
         if flatten:
-            self._m[self._e >= self._e0] += (
-                1.0 - (fit(self._e)[self._e >= self._e0] / fit(self._e0))
+            postedge_filter = result._energy >= result._absorption_edge
+            result._absorption[postedge_filter] += (
+                1.0 - (fit(self._energy)[postedge_filter] / 
+                    fit(self._absorption_edge))
             )
 
-        return self
+        return result
 
     def convolve(
         self,
-        conv_type: str = 'fixed_width',
-        width: float = 2.0,
-        ef: float = -5.0,
-        ec: float = 30.0,
-        el: float = 30.0,
-        width_max: float = 15.0
-    ):
+        conv_params: dict = None,
+        inplace: bool = True
+    ) -> Self:
         """
-        Convolves the XANES spectrum with either a fixed-width (`width`; eV)
-        Lorentzian function (if `conv_type` == 'fixed_width') or energy-
-        dependent variable-width Lorentzian function where the width is derived
-        from either the Seah-Dench (if `conv_type` == 'seah_dench_model') or
-        arctangent (if `conv_type` == 'arctangent_model') convolution models.
-        `m` is projected from `e` onto an auxilliary energy scale `e_aux` via
-        linear interpolation before convolution; the spacing of the energy
-        gridpoints in `e_aux` is equal to the smallest spacing of the energy
-        gridpoints in `e`, and `e_aux` is padded at either end. 
+        Convolves the XANES spectrum with a fixed-width or energy-dependent
+        (variable-width) Lorentzian function where the widths are
+        derived from a convolution model (e.g. Seah-Dench; arctangent; etc.).
+
+        XANES spectra are projected onto an auxilliary energy grid via linear
+        interpolation pre-convolution; the spacing of the energy gridpoints
+        on the auxilliary energy grid are equal to the smallest spacing of the
+        energy gridpoints on the original energy grid.
 
         Args:
-            conv_type (str, optional): type of convolution; options are
-                'fixed_width', 'seah_dench_model', and 'arctangent_model'.
-                Defaults to 'fixed_width'.
-            width (float, optional): width (in eV) of the Lorentzian function
-                used in the convolution if `conv_type` == 'fixed_width'; if
-                `conv_type` == 'seah_dench_model' or 'arctangent_model', this
-                is the initial width of the (energy-dependent) Lorentzian.            
-                Defaults to 2.0.
-            ef (float, optional): the Fermi energy (in eV, relative to `e0`);
-                cross-sectional contributions from the occupied states below
-                the Fermi energy are removed.
-                Defaults to -5.0.
-            ec (float, optional): the centre of the arctangent function (in eV,
-                relative to `e0`); used if `conv_type` == 'arctangent_model'.
-                Defaults to 30.0.
-            el (float, optional): the width of the arctangent function (in eV);
-                used if `conv_type` == 'arctangent_model'.
-                Defaults to 30.0.
-            width_max (float, optional): the maximum width (in eV) used in the
-                convolution; used if `conv_type` == 'seah_dench_model' or
-                'arctangent_model'.
-                Defaults to 15.0.
+            conv_params (dict, optional): Dictionary of convolution parameters,
+                including the convolution type (`conv_type`). If these keys
+                are *not* set, `conv_type` defaults to 'fixed_width', `width`
+                defaults to 1.0 eV, and `ef` (the Fermi energy relative to the
+                X-ray absorption edge) defaults to -1.0 eV. Defaults to None.
+            inplace (bool, optional): If `True`, the transformation is carried
+                out in-place; if `False`, the transformation is carried out on
+                a copy and the copy is returned. Defaults to `True`.
 
-        Raises:
-            ValueError: _description_
+        Returns:
+            Self: Self if `inplace` is `True`, else a new `XANES` instance with
+                the transformation applied.
         """
 
-        de = np.min(np.diff(self._e))
+        result = self if inplace else copy.deepcopy(self)
 
-        pad = de * int((50.0 * width) / de)
+        conv_params = _set_default_conv_params(conv_params)
 
-        e_aux = np.linspace(
-            np.min(self._e) - pad,
-            np.max(self._e) + pad,
-            int((np.ptp(self._e) + (2.0 * pad)) / de) + 1
+        delta = np.min(np.diff(result._energy_rel))
+
+        pad = delta * int((50.0 * conv_params["width"]) / delta)
+
+        energy_aux = np.linspace(
+            np.min(result._energy_rel) - pad,
+            np.max(result._energy_rel) + pad,
+            int((np.ptp(result._energy_rel) + (2.0 * pad)) / delta) + 1
         )
 
-        if conv_type == 'fixed_width':
-            pass
-        elif conv_type == 'seah_dench_model':
-            width = _calc_seah_dench_conv_width(
-                e_rel = e_aux - self._e0,
-                width = width,
-                ef = ef,
-                width_max = width_max
-            )
-        elif conv_type == 'arctangent_model':
-            width = _calc_arctangent_conv_width(
-                e_rel = e_aux - self._e0,
-                width = width,
-                ef = ef,
-                ec = ec,
-                el = el,
-                width_max = width_max
-            )
-        else:
-            raise ValueError('the convolution type is not recognised; try'\
-                '`fixed_width` or `arctangent`')
+        width = _get_conv_width(
+            energy_aux,
+            conv_params = conv_params
+        )
 
-        # remove cross-sectional contributions to `m` below `ef`
-        self._m[self._e < (self._e0 + ef)] = 0.0
+        preedge_filter = (
+            result._energy < (result._absorption_edge + conv_params["ef"])
+        )
 
-        # project `m` onto the auxilliary energy scale `e_aux`
-        m_aux = np.interp(e_aux, self._e, self._m)
+        # remove cross-sectional contributions to the absorption intensity
+        # (`absorption`) below the Fermi energy (`ef`)
+        result._absorption[preedge_filter] = 0.0
 
-        e_, e0_ = np.meshgrid(e_aux, e_aux)
-        conv_filter = _lorentzian(e_, e0_, width)
+        # project the absorption intensity (`absorption`) onto the auxilliary
+        # energy grid (`e_aux`)
+        absorption_aux = np.interp(
+            energy_aux, result._energy_rel, result._absorption
+        )
 
-        # convolve `m_aux` with the convolution filter `conv_filter`
-        m_aux = np.sum(conv_filter * m_aux, axis = 1)
+        # create the convolutional filter (`conv_filter`)
+        conv_filter = _lorentzian(
+            *np.meshgrid(energy_aux, energy_aux), width
+        )
 
-        # project `m_aux` onto the original energy scale `e`
-        self._m = np.interp(self._e, e_aux, m_aux)
+        # convolve the absorption intensity on the auxilliary energy grid
+        # (`absorption_aux`) with the convolution filter (`conv_filter`)
+        absorption_aux = np.sum(
+            conv_filter * absorption_aux, axis = 1
+        )
 
-        return self
+        # project the absorption intensity on the auxilliary energy grid
+        # (`absorption_aux`) onto the original energy grid (`energy`)
+        result._absorption = np.interp(
+            result._energy_rel, energy_aux, absorption_aux
+        )
 
-    @property
-    def e(self) -> float:
-        return self._e
-
-    @property
-    def m(self) -> float:
-        return self._m
-
-    @property
-    def e0(self) -> float:
-        return self._e0
-
-    @property
-    def spectrum(self) -> tuple:
-        return (self._e, self._m)
-
-def _lorentzian(x: np.ndarray, x0: float, width: float):
-    # returns the `y` values for a Lorentzian function defined over `x` with a
-    # centre `x0` and a width `width`
+        return result
     
-    return width * (0.5 / ((x - x0)**2 + (0.5 * width)**2))
+    def plot(
+        self,
+        ax: plt.Axes = None,
+        figsize: tuple[float, float] = (6.0, 4.0),
+        xlabel: str = 'Energy / eV',
+        ylabel: str = 'Absorption Intensity',
+        title: str = None,
+        grid: bool = True,
+        **kwargs
+    ) -> plt.Axes:
+        """
+        Plots the XANES spectrum.
 
-def _calc_seah_dench_conv_width(
-    e_rel: np.ndarray,
-    width: float = 2.0,
-    ef: float = -5.0,
-    a: float = 1.0,
-    width_max: float = 15.0
-) -> np.ndarray:
-    # returns the widths for an energy-dependent Lorentzian under the
-    # Seah-Dench convolution model; evaluated over `e_rel` (the energy relative
-    # to the X-ray absorption edge `e0` in eV) where `width` is the initial
-    # state width in eV, `width_max` is the final state width in eV, `ef` is
-    # the Fermi energy in eV, and `a` is the Seah-Dench (pre-)factor 
+        Args:
+            ax (plt.Axes, optional): Matplotlib axes (plt.Axes instance) to
+                plot the XANES spectrum on. Defaults to None.
+            figsize (tuple[float, float], optional): Matplotlib figure size
+                [(width, height); inches]; only used if `ax` is None and a new
+                'fig/ax' pair is instantiated. Defaults to (6.0, 4.0).
+            xlabel (str, optional): X axis label. Defaults to 'Energy / eV'.
+            ylabel (str, optional): Y axis label. Defaults to 'Absorption'.
+            title (str, optional): Plot title. Defaults to None.
+            grid (bool, optional): Toggles the visibility of the axes grid.
+                Defaults to True.
 
-    e_ = e_rel - ef
+        Returns:
+            plt.Axes: Matplotlib axes containing the XANES spectrum plot.
+        """
 
-    g = width + (
-        (a * width_max * e_) / (width_max + (a * e_))
-    )
-
-    return g
-
-def _calc_arctangent_conv_width(
-    e_rel: np.ndarray,
-    width: float = 2.0,
-    ef: float = -5.0,
-    ec: float = 30.0,
-    el: float = 30.0,
-    width_max: float = 15.0
-) -> np.ndarray:
-    # returns the widths for an energy-dependent Lorentzian under the
-    # arctangent convolution model; evaluated over `e_rel` (the energy relative
-    # to the X-ray absorption edge `e0` in eV) where `width` is the initial
-    # state width in eV, `width_max` is the final state width in eV, `ef` is
-    # the Fermi energy in eV, `ec` is the centre of the arctangent in eV
-    # relative to `e0`, and `el` is the width of the arctangent in eV    
-   
-    e_ = (e_rel - ef) / ec
+        if not MATPLOTLIB_AVAILABLE:
+            raise ImportError(
+                'matplotlib is required for plotting and is not installed; '
+                'try `pip install matplotlib`'
+            )
         
-    with np.errstate(divide = 'ignore'):
-        arctan = (np.pi / 3.0) * (width_max / el) * (e_ - (1.0 / e_**2))
+        if ax is None:
+            fig, ax = plt.subplots(figsize = figsize)
 
-    g = width + (
-        width_max * ((1.0 / 2.0) + (1.0 / np.pi) * np.arctan(arctan))
-    )
-  
-    return g
+        ax.plot(
+            self._energy,
+            self._absorption,
+            **kwargs
+        )
+
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+        if title:
+            ax.set_title(title)
+
+        ax.grid(grid)
+
+        plt.tight_layout()
+
+        return ax
+
+    @property
+    def energy(
+        self
+    ) -> np.ndarray:
+        """
+        Returns:
+            np.ndarray: Array of energy values (in eV) defining the XANES
+                spectrum.
+        """
+        
+        return self._energy
+    
+    @property
+    def energy_rel(
+        self
+    ) -> np.ndarray:
+        """
+        Returns:
+            np.ndarray: Array of energy values (in eV relative to the X-ray
+                absorption edge) defining the XANES spectrum.
+        """
+        
+        return self._energy_rel
+
+    @property
+    def absorption(
+        self
+    ) -> np.ndarray:
+        """
+        Returns:
+            np.ndarray: Array of absorption intensity values defining the
+                XANES spectrum.
+        """
+        
+        return self._absorption
+
+    @property
+    def absorption_edge(
+        self
+    ) -> float:
+        """
+        Returns:
+            float: X-ray absorption edge (in eV).
+        """
+
+        return self._absorption_edge
 
 class XANESSpectrumTransformer(BaseTransformer):
     """
@@ -304,48 +463,66 @@ class XANESSpectrumTransformer(BaseTransformer):
 
     def __init__(
         self,
-        e_min: float = -30.0,
-        e_max: float = 120.0,
+        energy_min: float = -30.0,
+        energy_max: float = 120.0,
         n_bins: int = 150,
-        scale: bool = True,
-        convolve: bool = True,
-        convolution_params: dict = None
+        shift: float = 0.0,
+        scale: float = 1.0,
+        normalise: bool = True,
+        conv: bool = True,
+        conv_params: dict = None
     ):
         """
         Args:
-            e_min (float, optional): Minimum energy bound (in eV) for the
+            energy_min (float, optional): Minimum energy bound (in eV) for the
                 spectral window/slice relative to the X-ray absorption edge.
                 Defaults to -30.0.
-            e_max (float, optional): Maximum energy bound (in eV) for the
+            energy_max (float, optional): Maximum energy bound (in eV) for the
                 spectral window/slice relative to the X-ray absorption edge.
                 Defaults to 120.0.
             n_bins (int, optional): Number of discrete energy bins for the
                 spectral window/slice. Defaults to 150.
-            scale (bool, optional): Toggles spectrum scaling using the
-                'edge-step' approach. Defaults to `True`.
-            convolve (bool, optional): Toggles spectrum convolution with a
-                fixed-width or energy-dependent-width Lorentzian filter.
-                Defaults to `True`.
-            convolution_params (dict, optional): Dictionary of convolution
-                parameters / kwargs that are passed to the `.convolve()`
-                method to define the convolution type and Lorentzian filter.
-                Defaults to `None`.
+            shift (float, optional): Shift in energy (in eV). Defaults to 0.0.
+            scale (float, optional): Scale factor for the absorption intensity
+                (in arbitrary units). Defaults to 1.0.
+            normalise (bool, optional): Toggles spectrum normalisation using
+                the 'edge-step' approach. Defaults to `True`.
+            conv (str, optional): Toggles spectrum convolution using (a) fixed-
+                or variable-width Lorentzian(s). Defaults to `True`.
+            conv_params (dict, optional): Dictionary of convolution parameters,
+                including the convolution type (`conv_type`). Defaults to
+                None.
+
+        Raises:
+            ValueError: If `energy_min` >= `energy_max`.
+            ValueError: If `n_bins` <= 0.
+        
         """
         
-        # TODO: sanity-check inputs and raise errors if necessary
-        self._e_min = e_min
-        self._e_max = e_max
-        self._n_bins = n_bins
-        self._e_aux = np.linspace(
-            self._e_min, self._e_max, self._n_bins
-        )
+        if energy_min < energy_max:
+            self._energy_min = energy_min
+            self._energy_max = energy_max
+        else:
+            raise ValueError(
+                f'the minimum energy bound ({energy_min} eV) can\'t be '
+                f'greater than the maximum energy bound ({energy_max} eV)'
+            )
+        
+        if n_bins > 0:
+            self._n_bins = n_bins
+        else:
+            raise ValueError(
+                'the number of discrete energy bins for the spectral window '
+                'can\'t be fewer than 1'
+            )
 
+        self.conv = conv
+        self.conv_params = conv_params if conv else None
+
+        self.normalise = normalise
+
+        self.shift = shift
         self.scale = scale
-
-        self.convolve = convolve
-        self.convolution_params = (
-            convolution_params if convolution_params is not None else {}
-        )
 
     def transform(
         self,
@@ -364,17 +541,22 @@ class XANESSpectrumTransformer(BaseTransformer):
             np.ndarray: Transformed XANES spectrum.
         """
 
-        if self.convolve:
-            spectrum.convolve(**self.convolution_params)
+        if self.conv:
+            spectrum.convolve(
+                conv_params = self.conv_params
+            )
 
-        if self.scale:
-            spectrum.scale()
+        if self.normalise:
+            spectrum.normalise()
 
-        spectrum_ = np.interp(
-            self._e_aux, spectrum.e - spectrum.e0, spectrum.m
+        spectrum.scale(self.scale)
+        spectrum.shift(self.shift)
+
+        spectrum.interp(
+            self._energy_min, self._energy_max, self._n_bins
         )
         
-        return spectrum_
+        return spectrum.absorption
     
     @property
     def energy_grid(
@@ -385,7 +567,9 @@ class XANESSpectrumTransformer(BaseTransformer):
             np.ndarray: Discrete energy bins.
         """
         
-        return self._e_aux
+        return np.linspace(
+            self._energy_min, self._energy_max, self._n_bins
+        )
 
     @property
     def size(
@@ -401,6 +585,198 @@ class XANESSpectrumTransformer(BaseTransformer):
 ###############################################################################
 ################################## FUNCTIONS ##################################
 ###############################################################################
+
+def _lorentzian(
+    x: np.ndarray,
+    x0: float,
+    width: float
+) -> np.ndarray:
+    """
+    Returns a Lorentzian function defined over `x`.
+
+    Args:
+        x (np.ndarray): Array of `x` values at which the Lorentzian function
+            is evaluated.
+        x0 (float): Peak, or center, of the Lorentzian function.
+        width (float): Width (full-width-at-half-maximum; FWHM) of the
+            Lorentzian function.
+
+    Returns:
+        np.ndarray: Array of `y` values corresponding to the evaluation of
+            the Lorentzian function at each value of `x`.
+    """
+    
+    return width * (0.5 / ((x - x0)**2 + (0.5 * width)**2))
+
+def _gaussian(
+    x: np.ndarray,
+    x0: float,
+    sigma: float
+) -> np.ndarray:
+    """
+    Returns a Gaussian function defined over `x`.
+
+    Args:
+        x (np.ndarray): Array of `x` values at which the Gaussian function
+            is evaluated.
+        x0 (float): Peak, or center, of the Gaussian function.
+        sigma (float): Width (standard deviation; sigma) of the Gaussian
+            function.
+
+    Returns:
+        np.ndarray: Array of `y` values corresponding to the evaluation of
+            the Gaussian function at each value of `x`.
+    """
+
+    return np.exp(-0.5 * ((x - x0) / sigma)**2)
+
+def _calc_seah_dench_conv_width(
+    energy_rel: np.ndarray,
+    width: float = 1.0,
+    width_max: float = 15.0,
+    ef: float = -5.0,
+    a: float = 1.0
+) -> np.ndarray:
+    """
+    Calculates the widths of the energy-dependent Lorentzians under the Seah-
+    Dench convolution model.
+
+    Args:
+        energy_rel (np.ndarray): Energies (in eV) relative to the X-ray
+            absorption edge.
+        width (float, optional): Initial Lorentzian width (in eV). Defaults to
+            2.0 (eV).
+        width_max (float, optional): Final/maximum Lorentzian width (in eV).
+            Defaults to 15.0 (eV).
+        ef (float, optional): Fermi energy (in eV) relative to the X-ray
+            absorption edge. Defaults to -5.0 (eV).
+        a (float, optional): Seah-Dench (pre-)factor. Defaults to 1.0.
+        
+    Returns:
+        np.ndarray: Array of values corresponding to the widths of the energy-
+            dependent Lorentzians under the Seah-Dench convolution model.
+    """
+
+    e_ = (energy_rel - ef)
+
+    return width + (
+        (a * width_max * e_) / (width_max + (a * e_))
+    )
+
+def _calc_arctangent_conv_width(
+    energy_rel: np.ndarray,
+    width: float = 1.0,
+    width_max: float = 15.0,
+    ef: float = -5.0,
+    ec: float = 30.0,
+    el: float = 30.0
+) -> np.ndarray:
+    """
+    Calculates the widths of the energy-dependent Lorentzians under the
+    arctangent convolution model.
+
+    Args:
+        energy_rel (np.ndarray): Energies (in eV) relative to the X-ray
+            absorption edge.
+        width (float, optional): Initial Lorentzian width (in eV). Defaults to
+            2.0 (eV).
+        width_max (float, optional): Final/maximum Lorentzian width (in eV).
+            Defaults to 15.0 (eV).
+        ef (float, optional): Fermi energy (in eV) relative to the X-ray
+            absorption edge. Defaults to -5.0 (eV).
+        ec (float, optional): Center of the arctangent smoothing function (in
+            eV) relative to the X-ray absorption edge. Defaults to 30.0 (eV).
+        el (float, optional): Width of the arctangent smoothing function (in
+            eV). Defaults to 30.0 (eV).
+
+    Returns:
+        np.ndarray: Array of values corresponding to the widths of the energy-
+            dependent Lorentzians under the arctangent convolution model.
+    """
+   
+    e_ = (energy_rel - ef) / ec
+    with np.errstate(divide = 'ignore'):
+        arctan = (np.pi / 3.0) * (width_max / el) * (e_ - (1.0 / e_**2))
+
+    return width + (
+        width_max * ((1.0 / 2.0) + (1.0 / np.pi) * np.arctan(arctan))
+    )
+
+def _set_default_conv_params(
+    conv_params: dict
+) -> dict:
+    """
+    Sets defaults for a dictionary of convolutional parameters; if unset,
+        these defaults are:
+
+        'conv_type' (str) = 'fixed_width'
+        'width' (float) = 1.0
+        'ef' (float) = -1.0
+
+    Args:
+        conv_params (dict): Dictionary of convolutional parameters. If None,
+            an empty dictionary is instantiated and set with defaults.
+
+    Returns:
+        dict: Dictionary of convolutional parameters with defaults set.
+    """
+    
+    if conv_params is None:
+        conv_params = {}
+
+    defaults = {
+        'conv_type': 'fixed_width',
+        'width': 1.0,
+        'ef': -1.0
+    }
+
+    for key, val in defaults.items():
+        conv_params.setdefault(key, val)
+
+    return conv_params    
+
+def _get_conv_width(
+    energy_rel: np.ndarray,
+    conv_params: dict
+) -> Union[float, np.ndarray]:
+    """
+    Returns the width(s) of the fixed-width or energy-dependent Lorentzian(s)
+    under the specified type of convolutional model.
+
+    Args:
+        energy_rel (np.ndarray): Energies (in eV) relative to the X-ray
+            absorption edge.
+        conv_params (dict): Dictionary of convolution parameters,
+            including the convolution type (`conv_type`). Defaults to None.
+
+    Raises:
+        ValueError: If `conv_type` is not one of 'fixed_width', 'seah_dench',
+            or 'arctangent'.
+
+    Returns:
+        Union[float, np.ndarray]: Width of the Lorentzian if the convolutional
+            model is 'fixed width', else an array of values corresponding to
+            the widths of the energy-dependent Lorentzians under the specified
+            type of convolutional model if the convolutional model is, e.g.,
+            'seah_dench' or 'arctangent'.
+    """
+    
+    params = {
+        key: val for key, val in conv_params.items() if key != 'conv_type'
+    }
+
+    if conv_params["conv_type"] == 'fixed_width':
+            return conv_params['width']
+    elif conv_params["conv_type"] == 'seah_dench':
+        return _calc_seah_dench_conv_width(energy_rel, **params)
+    elif conv_params["conv_type"] == 'arctangent':
+        return _calc_arctangent_conv_width(energy_rel, **params)
+    else:
+        raise ValueError(
+            f'convolution type {conv_params["conv_type"]} is not a '
+            'recognised/supported convolution type; try, e.g., '
+            '\'fixed_width\', \'seah_dench\', or \'arctangent\''                
+        )
 
 def get_spectrum_transformer(
     transformer_type: str,
@@ -547,12 +923,12 @@ def _read_from_txt(
         XANES: XANES spectrum.
     """
 
-    e0 = float(f.readline().split()[0])
+    absorption_edge = float(f.readline().split()[0])
     energy, absorption = np.loadtxt(
         f, skiprows = 1, unpack = True
     )
 
-    return XANES(energy, absorption, e0 = e0)
+    return XANES(energy, absorption, absorption_edge = absorption_edge)
 
 def _read_from_bav(
     f: TextIO
@@ -575,8 +951,10 @@ def _write_as_csv(
         spectrum (XANES): XANES spectrum.
     """
     
-    data = np.column_stack((spectrum.e, spectrum.m))
-    header = 'energy,absorption'
+    data = np.column_stack((spectrum.energy, spectrum.absorption))
+    header = (
+        'energy,absorption'
+    )
     np.savetxt(
         f, data, delimiter = ',', header = header, fmt = ('%.3f', '%.6f')
     )
@@ -594,8 +972,10 @@ def _write_as_txt(
         spectrum (XANES): XANES spectrum.
     """
     
-    data = np.column_stack((spectrum.e, spectrum.m))
-    header = f'  {spectrum.e0:.3f} = e_edge\n  energy      <xanes>'
+    data = np.column_stack((spectrum.energy, spectrum.absorption))
+    header = (
+        f'  {spectrum.absorption_edge:.3f} = e_edge\n  energy      <xanes>'
+    )
     np.savetxt(
         f, data, delimiter = '  ', header = header, fmt = ('%10.2f', '%15.7e')
     )

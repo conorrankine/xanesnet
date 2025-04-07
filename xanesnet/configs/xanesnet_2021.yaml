@@ -17,14 +17,16 @@ descriptor:
 spectrum_transformer:
   type: xanes
   params:
-    e_min: -15.0
-    e_max: 60.0
+    energy_min: -15.0
+    energy_max: 60.0
     n_bins: 226
-    scale: True
-    convolve: True
-    convolution_params:
-      conv_type: arctangent_model
-      width: 1.25
+    shift: 0.0
+    scale: 1.0
+    normalise: True
+    conv: True
+    conv_params:
+      conv_type: arctangent
+      width: 1.0
       width_max: 15.0
       ef: -1.0
       ec: 30.0
