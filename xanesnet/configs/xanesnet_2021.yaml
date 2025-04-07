@@ -24,7 +24,7 @@ spectrum_transformer:
     conv: True
     conv_params:
       conv_type: arctangent
-      width: 1.25
+      width: 1.0
       width_max: 15.0
       ef: -1.0
       ec: 30.0

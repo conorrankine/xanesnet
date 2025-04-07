@@ -148,7 +148,7 @@ class XANES():
             conv_params (dict, optional): Dictionary of convolution parameters,
                 including the convolution type (`conv_type`). If these keys
                 are *not* set, `conv_type` defaults to 'fixed_width', `width`
-                defaults to 2.0 eV, and `ef` (the Fermi energy relative to the
+                defaults to 1.0 eV, and `ef` (the Fermi energy relative to the
                 X-ray absorption edge) defaults to -1.0 eV. Defaults to None.
         """
 
@@ -380,7 +380,7 @@ def _gaussian(
 
 def _calc_seah_dench_conv_width(
     energy_rel: np.ndarray,
-    width: float = 2.0,
+    width: float = 1.0,
     width_max: float = 15.0,
     ef: float = -5.0,
     a: float = 1.0
@@ -413,7 +413,7 @@ def _calc_seah_dench_conv_width(
 
 def _calc_arctangent_conv_width(
     energy_rel: np.ndarray,
-    width: float = 2.0,
+    width: float = 1.0,
     width_max: float = 15.0,
     ef: float = -5.0,
     ec: float = 30.0,
@@ -458,7 +458,7 @@ def _set_default_conv_params(
         these defaults are:
 
         'conv_type' (str) = 'fixed_width'
-        'width' (float) = 2.0
+        'width' (float) = 1.0
         'ef' (float) = -1.0
 
     Args:
@@ -474,7 +474,7 @@ def _set_default_conv_params(
 
     defaults = {
         'conv_type': 'fixed_width',
-        'width': 2.0,
+        'width': 1.0,
         'ef': -1.0
     }
 
