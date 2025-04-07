@@ -107,7 +107,41 @@ class XANES():
         result._energy += shift
         result._absorption_edge += shift
 
-        return result     
+        return result
+    
+    def scale(
+        self,
+        scale: float = 1.0,
+        inplace: bool = True
+    ) -> Self:
+        """
+        Scales the XANES spectrum in (absorption) intensity by a factor of
+        `scale`, updating the `absorption` property.
+
+        Args:
+            scale (float, optional): Scale. Defaults to 1.0.
+            inplace (bool, optional): If `True`, the transformation is carried
+                out in-place; if `False`, the transformation is carried out on
+                a copy and the copy is returned. Defaults to `True`.
+
+        Raises:
+            ValueError: If `scale` <= 0.0.
+
+        Returns:
+            Self: Self if `inplace` is `True`, else a new `XANES` instance with
+                the transformation applied.
+        """
+
+        if scale <= 0.0:
+            raise ValueError(
+                f'scaling factors should be > 0.0; got {scale} (<= 0.0)'
+            )
+
+        result = self if inplace else copy.deepcopy(self)
+
+        result._absorption *= scale
+
+        return result
 
     def normalise(
         self,
