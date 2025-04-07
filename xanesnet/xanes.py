@@ -81,6 +81,33 @@ class XANES():
         """
 
         return self._energy[np.argmax(np.gradient(self._absorption))]
+    
+    def shift(
+        self,
+        shift: float = 0.0,
+        inplace: bool = True
+    ) -> Self:
+        """
+        Shifts the XANES spectrum in energy by `shift` eV, updating the
+        `energy` and `absorption_edge` properties.
+
+        Args:
+            shift (float, optional): Shift in energy (in eV). Defaults to 0.0.
+            inplace (bool, optional): If `True`, the transformation is carried
+                out in-place; if `False`, the transformation is carried out on
+                a copy and the copy is returned. Defaults to `True`.
+
+        Returns:
+            Self: Self if `inplace` is `True`, else a new `XANES` instance with
+                the transformation applied.
+        """
+        
+        result = self if inplace else copy.deepcopy(self)
+
+        result._energy += shift
+        result._absorption_edge += shift
+
+        return result     
 
     def normalise(
         self,
