@@ -144,8 +144,9 @@ class XANES():
 
     def convolve(
         self,
-        conv_params: dict = None
-    ):
+        conv_params: dict = None,
+        inplace: bool = True
+    ) -> Self:
         """
         Convolves the XANES spectrum with a fixed-width or energy-dependent
         (variable-width) Lorentzian function where the widths are
@@ -162,18 +163,27 @@ class XANES():
                 are *not* set, `conv_type` defaults to 'fixed_width', `width`
                 defaults to 1.0 eV, and `ef` (the Fermi energy relative to the
                 X-ray absorption edge) defaults to -1.0 eV. Defaults to None.
+            inplace (bool, optional): If `True`, the transformation is carried
+                out in-place; if `False`, the transformation is carried out on
+                a copy and the copy is returned. Defaults to `True`.
+
+        Returns:
+            Self: Self if `inplace` is `True`, else a new `XANES` instance with
+                the transformation applied.
         """
+
+        result = self if inplace else copy.deepcopy(self)
 
         conv_params = _set_default_conv_params(conv_params)
 
-        delta = np.min(np.diff(self._energy_rel))
+        delta = np.min(np.diff(result._energy_rel))
 
         pad = delta * int((50.0 * conv_params["width"]) / delta)
 
         energy_aux = np.linspace(
-            np.min(self._energy_rel) - pad,
-            np.max(self._energy_rel) + pad,
-            int((np.ptp(self._energy_rel) + (2.0 * pad)) / delta) + 1
+            np.min(result._energy_rel) - pad,
+            np.max(result._energy_rel) + pad,
+            int((np.ptp(result._energy_rel) + (2.0 * pad)) / delta) + 1
         )
 
         width = _get_conv_width(
@@ -182,17 +192,17 @@ class XANES():
         )
 
         preedge_filter = (
-            self._energy < (self._absorption_edge + conv_params["ef"])
+            result._energy < (result._absorption_edge + conv_params["ef"])
         )
 
         # remove cross-sectional contributions to the absorption intensity
         # (`absorption`) below the Fermi energy (`ef`)
-        self._absorption[preedge_filter] = 0.0
+        result._absorption[preedge_filter] = 0.0
 
         # project the absorption intensity (`absorption`) onto the auxilliary
         # energy grid (`e_aux`)
         absorption_aux = np.interp(
-            energy_aux, self._energy_rel, self._absorption
+            energy_aux, result._energy_rel, result._absorption
         )
 
         # create the convolutional filter (`conv_filter`)
@@ -208,11 +218,11 @@ class XANES():
 
         # project the absorption intensity on the auxilliary energy grid
         # (`absorption_aux`) onto the original energy grid (`energy`)
-        self._absorption = np.interp(
-            self._energy_rel, energy_aux, absorption_aux
+        result._absorption = np.interp(
+            result._energy_rel, energy_aux, absorption_aux
         )
 
-        return self
+        return result
 
     @property
     def energy(
