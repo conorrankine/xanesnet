@@ -31,6 +31,56 @@ from .xanes import read as read_xanes
 ################################## FUNCTIONS ##################################
 ###############################################################################
 
+def load_data(
+    element: str,
+    edge: str = 'K'
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Loads input (X) and target (Y) data from 'prebuilt' datasets for the
+    specified element and X-ray absorption edge combination.
+
+    Input (X) data are the local environments around X-ray absorption sites in
+    the transition metal complexes of the tmQM (DOI: 10.1021/acs.jcim.0c01041)
+    dataset, featurised as vectors of weighted atom-centred symmetry functions
+    (wACSFs; 1 x G1, 32 x G2, 64 x G4); target (Y) data are X-ray absorption
+    spectra over the energy range -15.0 -> 60.0 eV (relative to the X-ray
+    absorption edge) with dE = 0.2 eV that are convolved under the arctangent
+    model and normalised using the 'edge-step' approach.
+
+    For additional information, refer to DOI: 10.1063/5.0087255.
+
+    Note that these datasets were regenerated using the 2024 release of the
+    tmQM dataset and so are not identical to the datasets used in the DOI
+    reference above, although the data were preprocessed identically.
+
+    Args:
+        element (str): Element, e.g., 'Fe', 'Zn', 'Ni', etc.
+        edge (str, optional): X-ray absorption edge. Defaults to 'K'.
+
+    Raises:
+        ValueError: If the specified element and X-ray absorption edge
+            combination is invalid, i.e. if the dataset does not exist.
+
+    Returns:
+        tuple[np.ndarray, np.ndarray]: Tuple of input (X) and output (Y) data
+            with dimensions [N x 97] (X) and [N x 226] (Y), where N is the
+            number of records for the specified element and X-ray absorption
+            edge combination.
+    """
+    
+    stem = f'{edge.lower()}_edge_{element.lower()}'
+    npz_f = Path(__file__).parent / 'datasets' / 'tmqm' / f'{stem}.npz'
+
+    if not npz_f.is_file():
+        raise ValueError(
+            f'no datasets found for the element ({element.capitalize()}) '
+            f'and edge ({edge.capitalize()}) combination requested'
+        )
+    
+    dataset = np.load(npz_f)
+
+    return dataset['x'], dataset['y']
+
 def load_dataset_from_data_src(
     x_src: Path,
     y_src: Path = None,
