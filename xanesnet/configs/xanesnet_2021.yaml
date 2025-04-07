@@ -20,7 +20,7 @@ spectrum_transformer:
     energy_min: -15.0
     energy_max: 60.0
     n_bins: 226
-    scale: True
+    normalise: True
     conv: True
     conv_params:
       conv_type: arctangent
