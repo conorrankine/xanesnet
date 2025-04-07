@@ -48,7 +48,7 @@ class XANES():
                 intensity. Defaults to None.
 
         Raises:
-            ValueError: if the `e` and `m` arrays are not the same length.
+            ValueError: If `energy` and `absorption` are not the same length.
         """
         
         if len(energy) == len(absorption):
@@ -64,6 +64,8 @@ class XANES():
             self._absorption_edge = absorption_edge
         else:
             self._absorption_edge = self.estimate_absorption_edge()
+
+        self._energy_rel = self._energy - self._absorption_edge
 
     def estimate_absorption_edge(
         self
@@ -106,11 +108,10 @@ class XANES():
                 Defaults to True.
         """
 
-        energy_rel = self._energy - self._absorption_edge
-        energy_rel_min, energy_rel_max = fit_limits
+        min_limit, max_limit = fit_limits
 
         fit_window = (
-            (energy_rel >= energy_rel_min) & (energy_rel <= energy_rel_max)
+            (self._energy_rel >= min_limit) & (self._energy_rel <= max_limit)
         )
 
         fit = np.polynomial.Polynomial.fit(
@@ -154,18 +155,18 @@ class XANES():
 
         conv_params = _set_default_conv_params(conv_params)
 
-        delta = np.min(np.diff(self._energy))
+        delta = np.min(np.diff(self._energy_rel))
 
         pad = delta * int((50.0 * conv_params["width"]) / delta)
 
         energy_aux = np.linspace(
-            np.min(self._energy) - pad,
-            np.max(self._energy) + pad,
-            int((np.ptp(self._energy) + (2.0 * pad)) / delta) + 1
+            np.min(self._energy_rel) - pad,
+            np.max(self._energy_rel) + pad,
+            int((np.ptp(self._energy_rel) + (2.0 * pad)) / delta) + 1
         )
 
         width = _get_conv_width(
-            energy_aux - self._absorption_edge,
+            energy_aux,
             conv_params = conv_params
         )
 
@@ -179,18 +180,26 @@ class XANES():
 
         # project the absorption intensity (`absorption`) onto the auxilliary
         # energy grid (`e_aux`)
-        absorption_aux = np.interp(energy_aux, self._energy, self._absorption)
+        absorption_aux = np.interp(
+            energy_aux, self._energy_rel, self._absorption
+        )
 
         # create the convolutional filter (`conv_filter`)
-        conv_filter = _lorentzian(*np.meshgrid(energy_aux, energy_aux), width)
+        conv_filter = _lorentzian(
+            *np.meshgrid(energy_aux, energy_aux), width
+        )
 
         # convolve the absorption intensity on the auxilliary energy grid
         # (`absorption_aux`) with the convolution filter (`conv_filter`)
-        absorption_aux = np.sum(conv_filter * absorption_aux, axis = 1)
+        absorption_aux = np.sum(
+            conv_filter * absorption_aux, axis = 1
+        )
 
         # project the absorption intensity on the auxilliary energy grid
         # (`absorption_aux`) onto the original energy grid (`energy`)
-        self._absorption = np.interp(self._energy, energy_aux, absorption_aux)
+        self._absorption = np.interp(
+            self._energy_rel, energy_aux, absorption_aux
+        )
 
         return self
 
@@ -203,7 +212,20 @@ class XANES():
             np.ndarray: Array of energy values (in eV) defining the XANES
                 spectrum.
         """
+        
         return self._energy
+    
+    @property
+    def energy_rel(
+        self
+    ) -> np.ndarray:
+        """
+        Returns:
+            np.ndarray: Array of energy values (in eV relative to the X-ray
+                absorption edge) defining the XANES spectrum.
+        """
+        
+        return self._energy_rel
 
     @property
     def absorption(
@@ -214,6 +236,7 @@ class XANES():
             np.ndarray: Array of absorption intensity values defining the
                 XANES spectrum.
         """
+        
         return self._absorption
 
     @property
@@ -224,6 +247,7 @@ class XANES():
         Returns:
             float: X-ray absorption edge (in eV).
         """
+
         return self._absorption_edge
 
 class XANESSpectrumTransformer(BaseTransformer):
