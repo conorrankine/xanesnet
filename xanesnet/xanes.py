@@ -262,12 +262,30 @@ class XANESSpectrumTransformer(BaseTransformer):
             conv_params (dict, optional): Dictionary of convolution parameters,
                 including the convolution type (`conv_type`). Defaults to
                 None.
+
+        Raises:
+            ValueError: If `energy_min` >= `energy_max`.
+            ValueError: If `n_bins` <= 0.
+        
         """
         
-        # TODO: sanity-check inputs and raise errors if necessary
-        self._energy_min = energy_min
-        self._energy_max = energy_max
-        self._n_bins = n_bins
+        if energy_min < energy_max:
+            self._energy_min = energy_min
+            self._energy_max = energy_max
+        else:
+            raise ValueError(
+                f'the minimum energy bound ({energy_min} eV) can\'t be '
+                f'greater than the maximum energy bound ({energy_max} eV)'
+            )
+        
+        if n_bins > 0:
+            self._n_bins = n_bins
+        else:
+            raise ValueError(
+                'the number of discrete energy bins for the spectral window '
+                'can\'t be fewer than 1'
+            )
+        
         self._energy_aux = np.linspace(
             self._energy_min, self._energy_max, self._n_bins
         )
@@ -275,7 +293,7 @@ class XANESSpectrumTransformer(BaseTransformer):
         self.scale = scale
 
         self.conv = conv
-        self.conv_params = conv_params
+        self.conv_params = conv_params if conv else None
 
     def transform(
         self,
