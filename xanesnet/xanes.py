@@ -515,10 +515,6 @@ class XANESSpectrumTransformer(BaseTransformer):
                 'the number of discrete energy bins for the spectral window '
                 'can\'t be fewer than 1'
             )
-        
-        self._energy_aux = np.linspace(
-            self._energy_min, self._energy_max, self._n_bins
-        )
 
         self.conv = conv
         self.conv_params = conv_params if conv else None
@@ -571,7 +567,9 @@ class XANESSpectrumTransformer(BaseTransformer):
             np.ndarray: Discrete energy bins.
         """
         
-        return self._e_aux
+        return np.linspace(
+            self._energy_min, self._energy_max, self._n_bins
+        )
 
     @property
     def size(
