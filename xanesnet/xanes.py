@@ -142,6 +142,65 @@ class XANES():
         result._absorption *= scale
 
         return result
+    
+    def interp(
+        self,
+        energy_min: float,
+        energy_max: float,
+        n_bins: int,
+        inplace: bool = True
+    ) -> Self:
+        """
+        Resamples the XANES spectrum via linear interpolation between the
+        bounds `energy_min` and `energy_max` at `n_bins` points.
+
+        Args:
+            energy_min (float): Minimum energy bound (in eV) relative to the
+                X-ray absorption edge.
+            energy_max (float): Maximum energy bound (in eV) relative to the
+                X-ray absorption edge.
+            n_bins (int): Number of energy gridpoints to resample the XANES
+                spectrum over.
+            inplace (bool, optional): If `True`, the transformation is carried
+                out in-place; if `False`, the transformation is carried out on
+                a copy and the copy is returned. Defaults to `True`.
+
+        Raises:
+            ValueError: If `energy_min` >= `energy_max`.
+            ValueError: If `n_bins` <= 0.
+
+        Returns:
+            Self: Self if `inplace` is `True`, else a new `XANES` instance with
+                the transformation applied.
+        """
+
+        if energy_min >= energy_max:
+            raise ValueError(
+                f'the minimum energy bound ({energy_min} eV) can\'t be '
+                f'greater than the maximum energy bound ({energy_max} eV)'
+            )
+        
+        if n_bins <= 0:
+            raise ValueError(
+                f'the number of discrete energy bins ({n_bins}) can\'t be '
+                'fewer than 1'
+            )
+            
+        result = self if inplace else copy.deepcopy(self)
+
+        interp_energy_rel = np.linspace(
+            energy_min, energy_max, n_bins
+        )
+        interp_energy = interp_energy_rel + result._absorption_edge
+        interp_absorption = np.interp(
+            interp_energy, result._energy, result._absorption
+        )
+        
+        result._energy = interp_energy
+        result._energy_rel = interp_energy_rel
+        result._absorption = interp_absorption
+
+        return result
 
     def normalise(
         self,
