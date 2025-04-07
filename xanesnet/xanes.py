@@ -65,7 +65,9 @@ class XANES():
         else:
             self._absorption_edge = self.estimate_absorption_edge()
 
-    def estimate_absorption_edge(self) -> float:
+    def estimate_absorption_edge(
+        self
+    ) -> float:
         """
         Estimates the energy of the X-ray absorption edge (in eV) as the
         energy at which the derivative of the absorption intensity is largest.
@@ -130,7 +132,6 @@ class XANES():
 
     def convolve(
         self,
-        conv_type: str = 'fixed_width',
         conv_params: dict = None
     ):
         """
@@ -144,35 +145,22 @@ class XANES():
         energy gridpoints on the original energy grid.
 
         Args:
-            conv_type (str, optional): Convolution type; options are
-                'fixed_width', 'seah_dench', and 'arctangent'. Defaults to
-                'fixed_width'.
-            conv_params (dict, optional): Convolution parameters passed to
-                the convolution width calculation function. If not set, `width`
-                defaults to 2.0 eV and `ef` (the Fermi energy relative to the
+            conv_params (dict, optional): Dictionary of convolution parameters,
+                including the convolution type (`conv_type`). If these keys
+                are *not* set, `conv_type` defaults to 'fixed_width', `width`
+                defaults to 2.0 eV, and `ef` (the Fermi energy relative to the
                 X-ray absorption edge) defaults to -1.0 eV. Defaults to None.
-
-        Raises:
-            ValueError: If `conv_type` is not one of 'fixed_width',
-                'seah_dench', or 'arctangent'.
         """
-
-        if conv_type not in ('fixed_width', 'seah_dench', 'arctangent'):
-            raise ValueError(
-                f'convolution type {conv_type} is not a recognised/supported '
-                'convolution type; try, e.g., \'fixed_width\', '
-                '\'seah_dench\', or \'arctangent\''                
-            )
 
         if conv_params is None:
             conv_params = {}
-
+        conv_params.setdefault('conv_type', 'fixed_width')
         conv_params.setdefault('width', 2.0)
         conv_params.setdefault('ef', -1.0)
 
         delta = np.min(np.diff(self._energy))
 
-        pad = delta * int((50.0 * conv_params['width']) / delta)
+        pad = delta * int((50.0 * conv_params["width"]) / delta)
 
         energy_aux = np.linspace(
             np.min(self._energy) - pad,
@@ -182,12 +170,11 @@ class XANES():
 
         width = _get_conv_width(
             energy_aux - self._absorption_edge,
-            conv_type = conv_type,
             conv_params = conv_params
         )
 
         preedge_filter = (
-            self._energy < (self._absorption_edge + conv_params['ef'])
+            self._energy < (self._absorption_edge + conv_params["ef"])
         )
 
         # remove cross-sectional contributions to the absorption intensity
@@ -199,7 +186,7 @@ class XANES():
         absorption_aux = np.interp(energy_aux, self._energy, self._absorption)
 
         # create the convolutional filter (`conv_filter`)
-        conv_filter = _get_conv_filter(energy_aux, width)
+        conv_filter = _lorentzian(*np.meshgrid(energy_aux, energy_aux), width)
 
         # convolve the absorption intensity on the auxilliary energy grid
         # (`absorption_aux`) with the convolution filter (`conv_filter`)
@@ -259,7 +246,7 @@ class XANESSpectrumTransformer(BaseTransformer):
         energy_max: float = 120.0,
         n_bins: int = 150,
         scale: bool = True,
-        conv_type: str = None,
+        conv: bool = True,
         conv_params: dict = None
     ):
         """
@@ -274,11 +261,10 @@ class XANESSpectrumTransformer(BaseTransformer):
                 spectral window/slice. Defaults to 150.
             scale (bool, optional): Toggles spectrum scaling using the
                 'edge-step' approach. Defaults to `True`.
-            conv_type (str, optional): Convolution type; options are
-                'fixed_width', 'seah_dench', and 'arctangent'. If None,
-                spectra are not convolved. Defaults to None.
-            conv_params (dict, optional): Convolution parameters passed through
-                to the convolution width calculation function. Defaults to
+            conv (str, optional): Toggles spectrum convolution using (a) fixed-
+                or variable-width Lorentzian(s). Defaults to `True`.
+            conv_params (dict, optional): Dictionary of convolution parameters,
+                including the convolution type (`conv_type`). Defaults to
                 None.
         """
         
@@ -292,7 +278,7 @@ class XANESSpectrumTransformer(BaseTransformer):
 
         self.scale = scale
 
-        self.conv_type = conv_type
+        self.conv = conv
         self.conv_params = conv_params
 
     def transform(
@@ -312,11 +298,8 @@ class XANESSpectrumTransformer(BaseTransformer):
             np.ndarray: Transformed XANES spectrum.
         """
 
-        if self.conv_type:
-            spectrum.convolve(
-                conv_type = self.conv_type,
-                conv_params = self.conv_params
-            )
+        if self.conv:
+            spectrum.convolve(conv_params = self.conv_params)
 
         if self.scale:
             spectrum.scale()
@@ -473,7 +456,6 @@ def _calc_arctangent_conv_width(
 
 def _get_conv_width(
     energy_rel: np.ndarray,
-    conv_type: str,
     conv_params: dict
 ) -> Union[float, np.ndarray]:
     """
@@ -483,70 +465,37 @@ def _get_conv_width(
     Args:
         energy_rel (np.ndarray): Energies (in eV) relative to the X-ray
             absorption edge.
-        conv_type (str): Convolution type; options are 'fixed_width',
-            'seah_dench', and 'arctangent'.
-        conv_params (dict): Convolution parameters passed through to the
-            convolution width calculation function.
+        conv_params (dict): Dictionary of convolution parameters,
+            including the convolution type (`conv_type`). Defaults to None.
 
     Raises:
         ValueError: If `conv_type` is not one of 'fixed_width', 'seah_dench',
             or 'arctangent'.
 
     Returns:
-        Union[float, np.ndarray]: Width of the Lorentzian if `conv_type` is
-            'fixed width', else an array of values corresponding to the widths
-            of the energy-dependent Lorentzians under the specified type of
-            convolutional model if `conv_type` is 'seah_dench' or 'arctangent'.
+        Union[float, np.ndarray]: Width of the Lorentzian if the convolutional
+            model is 'fixed width', else an array of values corresponding to
+            the widths of the energy-dependent Lorentzians under the specified
+            type of convolutional model if the convolutional model is, e.g.,
+            'seah_dench' or 'arctangent'.
     """
     
-    if conv_params is None:
-        conv_params = {}
+    params = {
+        key: val for key, val in conv_params.items() if key != 'conv_type'
+    }
 
-    if conv_type == 'fixed_width':
+    if conv_params["conv_type"] == 'fixed_width':
             return conv_params['width']
-    elif conv_type == 'seah_dench':
-        return _calc_seah_dench_conv_width(
-            energy_rel = energy_rel, **conv_params
-        )
-    elif conv_type == 'arctangent':
-        return _calc_arctangent_conv_width(
-            energy_rel = energy_rel, **conv_params
-        )
+    elif conv_params["conv_type"] == 'seah_dench':
+        return _calc_seah_dench_conv_width(energy_rel, **params)
+    elif conv_params["conv_type"] == 'arctangent':
+        return _calc_arctangent_conv_width(energy_rel, **params)
     else:
         raise ValueError(
-            f'convolution type {conv_type} is not a recognised/supported '
-            'convolution type; try, e.g., \'fixed_width\', '
-            '\'seah_dench\', or \'arctangent\''
+            f'convolution type {conv_params["conv_type"]} is not a '
+            'recognised/supported convolution type; try, e.g., '
+            '\'fixed_width\', \'seah_dench\', or \'arctangent\''                
         )
-
-def _get_conv_filter(
-    energy_rel: np.ndarray,
-    width: Union[float, np.ndarray]
-) -> np.ndarray:
-    """
-    Returns a (2D) array of Lorentzian convolutional filters with variable
-    centers and (optionally) widths defined over a (1D) energy grid; each
-    Lorentzian convolutional filter is centered at a different energy
-    gridpoint, i.e., the i^{th} row of the array of Lorentzian convolutional
-    filters contains a Lorentzian function defined over `x` = `e_rel` with
-    the center `x0` = `e_rel[i]` and `width` = `width[i]` (else `width` =
-    `width` if `width` is a float rather than a np.ndarray).
-
-    Args:
-        energy_rel (np.ndarray): Energies (in eV) relative to the X-ray
-            absorption edge.
-        width (Union[float, np.ndarray]): Width(s) of the Lorentzians (in
-            eV); if scalar (float), all Lorentzians will have constant width,
-            else, if a np.ndarray, Lorentzians will have variable width (e.g.,
-            the i^{th} Lorentzian will have a width = `width[i]`).
-
-    Returns:
-        np.ndarray: (2D) Array of Lorentzian convolutional filters. 
-    """
-    
-    return _lorentzian(
-        *np.meshgrid(energy_rel, energy_rel), width
-    )    
 
 def get_spectrum_transformer(
     transformer_type: str,
