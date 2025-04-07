@@ -152,11 +152,7 @@ class XANES():
                 X-ray absorption edge) defaults to -1.0 eV. Defaults to None.
         """
 
-        if conv_params is None:
-            conv_params = {}
-        conv_params.setdefault('conv_type', 'fixed_width')
-        conv_params.setdefault('width', 2.0)
-        conv_params.setdefault('ef', -1.0)
+        conv_params = _set_default_conv_params(conv_params)
 
         delta = np.min(np.diff(self._energy))
 
@@ -453,6 +449,39 @@ def _calc_arctangent_conv_width(
     return width + (
         width_max * ((1.0 / 2.0) + (1.0 / np.pi) * np.arctan(arctan))
     )
+
+def _set_default_conv_params(
+    conv_params: dict
+) -> dict:
+    """
+    Sets defaults for a dictionary of convolutional parameters; if unset,
+        these defaults are:
+
+        'conv_type' (str) = 'fixed_width'
+        'width' (float) = 2.0
+        'ef' (float) = -1.0
+
+    Args:
+        conv_params (dict): Dictionary of convolutional parameters. If None,
+            an empty dictionary is instantiated and set with defaults.
+
+    Returns:
+        dict: Dictionary of convolutional parameters with defaults set.
+    """
+    
+    if conv_params is None:
+        conv_params = {}
+
+    defaults = {
+        'conv_type': 'fixed_width',
+        'width': 2.0,
+        'ef': -1.0
+    }
+
+    for key, val in defaults.items():
+        conv_params.setdefault(key, val)
+
+    return conv_params    
 
 def _get_conv_width(
     energy_rel: np.ndarray,
