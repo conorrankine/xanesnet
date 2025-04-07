@@ -19,6 +19,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.
 ############################### LIBRARY IMPORTS ###############################
 ###############################################################################
 
+import matplotlib.pyplot as plt
 import numpy as np
 import copy
 from pathlib import Path
@@ -195,7 +196,7 @@ class XANES():
         interp_absorption = np.interp(
             interp_energy, result._energy, result._absorption
         )
-        
+
         result._energy = interp_energy
         result._energy_rel = interp_energy_rel
         result._absorption = interp_absorption
@@ -344,6 +345,55 @@ class XANES():
         )
 
         return result
+    
+    def plot(
+        self,
+        ax: plt.Axes = None,
+        figsize: tuple[float, float] = (6.0, 4.0),
+        xlabel: str = 'Energy / eV',
+        ylabel: str = 'Absorption Intensity',
+        title: str = None,
+        grid: bool = True,
+        **kwargs
+    ) -> plt.Axes:
+        """
+        Plots the XANES spectrum.
+
+        Args:
+            ax (plt.Axes, optional): Matplotlib axes (plt.Axes instance) to
+                plot the XANES spectrum on. Defaults to None.
+            figsize (tuple[float, float], optional): Matplotlib figure size
+                [(width, height); inches]; only used if `ax` is None and a new
+                'fig/ax' pair is instantiated. Defaults to (6.0, 4.0).
+            xlabel (str, optional): X axis label. Defaults to 'Energy / eV'.
+            ylabel (str, optional): Y axis label. Defaults to 'Absorption'.
+            title (str, optional): Plot title. Defaults to None.
+            grid (bool, optional): Toggles the visibility of the axes grid.
+                Defaults to True.
+
+        Returns:
+            plt.Axes: Matplotlib axes containing the XANES spectrum plot.
+        """
+        
+        if ax is None:
+            fig, ax = plt.subplots(figsize = figsize)
+
+        ax.plot(
+            self._energy,
+            self._absorption,
+            **kwargs
+        )
+
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+        if title:
+            ax.set_title(title)
+
+        ax.grid(grid)
+
+        plt.tight_layout()
+
+        return ax
 
     @property
     def energy(
