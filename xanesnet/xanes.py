@@ -539,18 +539,18 @@ class XANESSpectrumTransformer(BaseTransformer):
         """
 
         if self.conv:
-            spectrum.convolve(conv_params = self.conv_params)
+            spectrum.convolve(
+                conv_params = self.conv_params
+            )
 
         if self.normalise:
             spectrum.normalise()
 
-        spectrum_ = np.interp(
-            self._energy_aux,
-            spectrum.energy - spectrum.absorption_edge,
-            spectrum.absorption
+        spectrum.interp(
+            self._energy_min, self._energy_max, self._n_bins
         )
         
-        return spectrum_
+        return spectrum
     
     @property
     def energy_grid(
