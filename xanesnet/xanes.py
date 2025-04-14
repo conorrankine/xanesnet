@@ -203,53 +203,42 @@ class XANES():
     
     def interp(
         self,
-        energy_min: float,
-        energy_max: float,
-        n_bins: int,
+        n_points: int,
         inplace: bool = True
     ) -> Self:
         """
-        Resamples the XANES spectrum via linear interpolation between the
-        bounds `energy_min` and `energy_max` at `n_bins` points.
+        Resamples the XANES spectrum via linear interpolation at `n_points`
+        evenly-spaced energy gridpoints.
 
         Args:
-            energy_min (float): Minimum energy bound (in eV) relative to the
-                X-ray absorption edge.
-            energy_max (float): Maximum energy bound (in eV) relative to the
-                X-ray absorption edge.
-            n_bins (int): Number of energy gridpoints to resample the XANES
-                spectrum over.
+            n_points (int): Number of energy gridpoints.
             inplace (bool, optional): If `True`, the transformation is carried
                 out in-place; if `False`, the transformation is carried out on
                 a copy and the copy is returned. Defaults to `True`.
 
         Raises:
-            ValueError: If `energy_min` >= `energy_max`.
-            ValueError: If `n_bins` <= 0.
+            ValueError: If `n_points` <= 0.
 
         Returns:
             Self: Self if `inplace` is `True`, else a new `XANES` instance with
                 the transformation applied.
         """
-
-        if energy_min >= energy_max:
-            raise ValueError(
-                f'the minimum energy bound ({energy_min} eV) can\'t be '
-                f'greater than the maximum energy bound ({energy_max} eV)'
-            )
         
-        if n_bins <= 0:
+        if n_points <= 0:
             raise ValueError(
-                f'the number of discrete energy bins ({n_bins}) can\'t be '
-                'fewer than 1'
+                f'the number of discrete energy gridpoints ({n_points}) can\'t '
+                'be fewer than 1'
             )
             
         result = self if inplace else copy.deepcopy(self)
 
-        interp_energy_rel = np.linspace(
-            energy_min, energy_max, n_bins
+        interp_energy = np.linspace(
+            result._energy.min(), result._energy.max(), n_points
         )
-        interp_energy = interp_energy_rel + result._absorption_edge
+        interp_energy_rel = np.linspace(
+            result._energy_rel.min(), result._energy_rel.max(), n_points
+        )
+
         interp_absorption = np.interp(
             interp_energy, result._energy, result._absorption
         )
