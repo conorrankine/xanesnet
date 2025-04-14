@@ -106,7 +106,7 @@ class XANES():
                 the transformation applied.
         """
         
-        result = self if inplace else copy.deepcopy(self)
+        result = self if inplace else self.copy()
 
         result._set_absorption_edge(result._absorption_edge + shift)
         result._set_energy(result._energy + shift)
@@ -141,7 +141,7 @@ class XANES():
                 f'scaling factors should be > 0.0; got {scale} (<= 0.0)'
             )
 
-        result = self if inplace else copy.deepcopy(self)
+        result = self if inplace else self.copy()
 
         result._set_absorption(result._absorption * scale)
 
@@ -176,7 +176,7 @@ class XANES():
                 the transformation applied.
         """
         
-        result = self if inplace else copy.deepcopy(self)
+        result = self if inplace else self.copy()
         
         if energy_min is None:
             energy_min = result._energy.min()
@@ -231,7 +231,7 @@ class XANES():
                 'be fewer than 1'
             )
             
-        result = self if inplace else copy.deepcopy(self)
+        result = self if inplace else self.copy()
 
         interp_energy = np.linspace(
             result._energy.min(), result._energy.max(), n_points
@@ -287,7 +287,7 @@ class XANES():
                 the transformation applied.
         """
 
-        result = self if inplace else copy.deepcopy(self)
+        result = self if inplace else self.copy()
 
         min_, max_ = fit_limits
 
@@ -354,7 +354,7 @@ class XANES():
                 the transformation applied.
         """
 
-        result = self if inplace else copy.deepcopy(self)
+        result = self if inplace else self.copy()
 
         conv_params = _set_default_conv_params(conv_params)
 
@@ -411,7 +411,7 @@ class XANES():
         ax: plt.Axes = None,
         figsize: tuple[float, float] = (6.0, 4.0),
         xlabel: str = 'Energy / eV',
-        ylabel: str = 'Absorption Intensity',
+        ylabel: str = 'Absorption',
         title: str = None,
         grid: bool = True,
         **kwargs
