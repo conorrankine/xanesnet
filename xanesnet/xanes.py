@@ -275,6 +275,11 @@ class XANES():
                 out in-place; if `False`, the transformation is carried out on
                 a copy and the copy is returned. Defaults to `True`.
 
+        Raises:
+            ValueError: If `fit_limits[0]` >= `fit_limits[1]`; i.e., if the
+                minimum energy bound is greater than or equal to the maximum
+                energy bound for the 2nd-order (quadratic) polynomial fit.
+
         Returns:
             Self: Self if `inplace` is `True`, else a new `XANES` instance with
                 the transformation applied.
@@ -283,6 +288,12 @@ class XANES():
         result = self if inplace else copy.deepcopy(self)
 
         min_, max_ = fit_limits
+
+        if min_ >= max_:
+            raise ValueError(
+                f'the minimum energy bound ({min_} eV) can\'t be greater '
+                f'than the maximum energy bound ({max_} eV)'
+            )
 
         fit_window = (
             (result._energy_rel >= min_) & (result._energy_rel <= max_)
