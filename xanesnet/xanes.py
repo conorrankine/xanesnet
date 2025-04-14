@@ -108,8 +108,8 @@ class XANES():
         
         result = self if inplace else copy.deepcopy(self)
 
-        result._energy += shift
-        result._absorption_edge += shift
+        result._set_absorption_edge(result._absorption_edge + shift)
+        result._set_energy(result._energy + shift)
 
         return result
     
@@ -143,7 +143,7 @@ class XANES():
 
         result = self if inplace else copy.deepcopy(self)
 
-        result._absorption *= scale
+        result._set_absorption(result._absorption * scale)
 
         return result
     
@@ -195,9 +195,8 @@ class XANES():
                 f'{energy_max}]'
             )
 
-        result._energy = result._energy[mask]
-        result._energy_rel = result._energy_rel[mask]
-        result._absorption = result._absorption[mask]
+        result._set_energy(result._energy[mask])
+        result._set_absorption(result._absorption[mask])
 
         return result
     
@@ -235,17 +234,13 @@ class XANES():
         interp_energy = np.linspace(
             result._energy.min(), result._energy.max(), n_points
         )
-        interp_energy_rel = np.linspace(
-            result._energy_rel.min(), result._energy_rel.max(), n_points
-        )
 
         interp_absorption = np.interp(
             interp_energy, result._energy, result._absorption
         )
 
-        result._energy = interp_energy
-        result._energy_rel = interp_energy_rel
-        result._absorption = interp_absorption
+        result._set_energy(interp_energy)
+        result._set_absorption(interp_absorption)
 
         return result
 
@@ -299,13 +294,19 @@ class XANES():
             deg = 2
         )
 
-        result._absorption /= fit(result._absorption_edge)
+        result._set_absorption(
+            result._absorption / fit(result._absorption_edge)
+        )
 
         if flatten:
-            postedge_filter = result._energy >= result._absorption_edge
-            result._absorption[postedge_filter] += (
-                1.0 - (fit(result._energy)[postedge_filter] / 
+            absorption = result._absorption.copy()
+            postedge_mask = result._energy >= result._absorption_edge
+            absorption[postedge_mask] += (
+                1.0 - (fit(result._energy)[postedge_mask] / 
                     fit(result._absorption_edge))
+            )
+            result._set_absorption(
+                absorption
             )
 
         return result
@@ -386,8 +387,8 @@ class XANES():
 
         # project the absorption intensity on the auxilliary energy grid
         # (`absorption_aux`) onto the original energy grid (`energy`)
-        result._absorption = np.interp(
-            result._energy_rel, energy_aux, absorption_aux
+        result._set_absorption(
+            np.interp(result._energy_rel, energy_aux, absorption_aux)
         )
 
         return result
@@ -446,6 +447,51 @@ class XANES():
         plt.tight_layout()
 
         return ax
+    
+    def _set_energy(
+        self,
+        energy: np.ndarray
+    ):
+        """
+        Internal setter: updates the `_energy` attribute with an array of 
+        energy values (in eV); simultaneously updates the `_energy_rel`
+        attribute using the `energy` and `_absorption_edge` attributes.
+
+        Args:
+            energy (np.ndarray): Array of energy values (in eV) defining the
+                XANES spectrum.
+        """
+        
+        self._energy = energy
+        self._energy_rel = self._energy - self._absorption_edge
+
+    def _set_absorption(
+        self,
+        absorption: np.ndarray
+    ):
+        """
+        Internal setter: updates the `_absorption` attribute with an array
+        of absorption intensity values.
+
+        Args:
+            absorption (np.ndarray): Array of absorption intensity values
+                defining the XANES spectrum.
+        """
+        
+        self._absorption = absorption
+
+    def _set_absorption_edge(
+        self,
+        absorption_edge: float
+    ):
+        """
+        Internal setter: updates the `_absorption_edge` attribute.
+
+        Args:
+            absorption_edge (float): X_ray absorption edge (in eV).
+        """
+        
+        self._absorption_edge = absorption_edge
 
     @property
     def energy(
