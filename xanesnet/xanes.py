@@ -158,8 +158,10 @@ class XANES():
         `energy_max` eV].
 
         Args:
-            energy_min (float): Minimum energy bound (in eV).
-            energy_max (float): Maximum energy bound (in eV).
+            energy_min (float): Minimum energy bound (in eV); if None, the
+                minimum energy bound is set to the lower limit of the spectrum.
+            energy_max (float): Maximum energy bound (in eV); if None, the
+                minimum energy bound is set to the upper limit of the spectrum.
             inplace (bool, optional): If `True`, the transformation is carried
                 out in-place; if `False`, the transformation is carried out on
                 a copy and the copy is returned. Defaults to `True`.
@@ -458,6 +460,18 @@ class XANES():
         plt.tight_layout()
 
         return ax
+    
+    def copy(
+        self
+    ) -> Self:
+        """
+        Creates a (deep) copy of the XANES instance.
+
+        Returns:
+            Self: Copy of the XANES instance.
+        """
+
+        return copy.deepcopy(self)
     
     def _set_energy(
         self,
