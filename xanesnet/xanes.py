@@ -147,6 +147,60 @@ class XANES():
 
         return result
     
+    def slice(
+        self,
+        energy_min: float = None,
+        energy_max: float = None,
+        inplace: bool = True
+    ) -> Self:
+        """
+        Slices the XANES spectrum into the energy window [`energy_min` eV,
+        `energy_max` eV].
+
+        Args:
+            energy_min (float): Minimum energy bound (in eV).
+            energy_max (float): Maximum energy bound (in eV).
+            inplace (bool, optional): If `True`, the transformation is carried
+                out in-place; if `False`, the transformation is carried out on
+                a copy and the copy is returned. Defaults to `True`.
+
+        Raises:
+            ValueError: If `energy_min` >= `energy_max`.
+            ValueError: If there are no absorption data in the energy window
+                [`energy_min`, `energy_max`].
+
+        Returns:
+            Self: Self if `inplace` is `True`, else a new `XANES` instance with
+                the transformation applied.
+        """
+        
+        result = self if inplace else copy.deepcopy(self)
+        
+        if energy_min is None:
+            energy_min = result._energy.min()
+        if energy_max is None:
+            energy_max = result._energy.max()
+
+        if energy_min >= energy_max:
+            raise ValueError(
+                f'the minimum energy bound ({energy_min} eV) can\'t be '
+                f'greater than the maximum energy bound ({energy_max} eV)'
+            )
+
+        mask = (result._energy >= energy_min) & (result._energy <= energy_max)
+
+        if not mask.any():
+            raise ValueError(
+                f'no absorption data found in the energy range [{energy_min}, '
+                f'{energy_max}]'
+            )
+
+        result._energy = self._energy[mask]
+        result._energy_rel = self._energy_rel[mask]
+        result._absorption = self._absorption[mask]
+
+        return result
+    
     def interp(
         self,
         energy_min: float,
