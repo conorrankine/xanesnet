@@ -195,9 +195,9 @@ class XANES():
                 f'{energy_max}]'
             )
 
-        result._energy = self._energy[mask]
-        result._energy_rel = self._energy_rel[mask]
-        result._absorption = self._absorption[mask]
+        result._energy = result._energy[mask]
+        result._energy_rel = result._energy_rel[mask]
+        result._absorption = result._absorption[mask]
 
         return result
     
@@ -304,8 +304,8 @@ class XANES():
         if flatten:
             postedge_filter = result._energy >= result._absorption_edge
             result._absorption[postedge_filter] += (
-                1.0 - (fit(self._energy)[postedge_filter] / 
-                    fit(self._absorption_edge))
+                1.0 - (fit(result._energy)[postedge_filter] / 
+                    fit(result._absorption_edge))
             )
 
         return result
